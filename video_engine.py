@@ -96,8 +96,8 @@ MAX_TOTAL_DURATION = 15.0
 # ==========================================
 TEXT_WIDTH = 580
 
-SETUP_FONT_SIZE = 46
-PUNCHLINE_FONT_SIZE = 54
+SETUP_FONT_SIZE = 60
+PUNCHLINE_FONT_SIZE = 75
 
 
 # ==========================================
