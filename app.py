@@ -1,3 +1,4 @@
+import os
 import gradio as gr
 from ai_generator import generate_naskah
 from video_engine import render_final_video
@@ -116,4 +117,7 @@ with gr.Blocks(theme=gr.themes.Soft(), css="footer {display: none !important;}")
     )
 
 if __name__ == "__main__":
-    ui.launch(share=False)
+    ui.launch(
+        server_name="0.0.0.0",
+        server_port=int(os.environ.get("PORT", 7860))
+    )
