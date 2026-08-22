@@ -46,6 +46,14 @@ def buat_video_motivasi(topik, api_key, model_pilihan):
     
     print("2. Menyerahkan naskah ke Mesin Video...")
     path_video = render_final_video(naskah_json)
+
+
+    print("=== DEBUG VIDEO ===")
+    print("Video path:", path_video)
+    print("File exists:", os.path.exists(path_video))
+    if os.path.exists(path_video):
+        print("File size:", os.path.getsize(path_video))
+    print("===================")
     
     print("--- Proses Selesai! ---")
     # Kembalikan tombol ke kondisi aktif setelah selesai
@@ -56,7 +64,7 @@ def buat_video_motivasi(topik, api_key, model_pilihan):
     )
 
 with gr.Blocks(theme=gr.themes.Soft(), css="footer {display: none !important;}") as ui:
-    gr.Markdown("# 🎬 Auto-Motivasi Sarkas Generator")
+    gr.Markdown("# 🎬 Motivasi Sarkas Generator")
     gr.Markdown("Ketik keresahanmu, masukkan API Key, dan hasilkan video pendek otomatis.")
     
     with gr.Row():
@@ -77,22 +85,24 @@ with gr.Blocks(theme=gr.themes.Soft(), css="footer {display: none !important;}")
                     type="password",
                     scale=4
                 )
-                status_key = gr.Markdown("", scale=1) # Indikator processing di kanan input
+                status_key = gr.Markdown("", scale=4) # Indikator processing di kanan input
             output_err_key = gr.HTML("")
             
-            input_model = gr.Dropdown(
-                label="Pilih Versi Model Gemini", 
-                choices=[
-                    "gemini-2.5-flash",
-                    "gemini-2.5-pro",
-                    "gemini-3.0-flash",
-                    "gemini-3.0-pro",
-                    "gemini-3.5-flash",
-                    "gemini-3.5-pro",
-                    "gemini-3.6-flash"
-                ], 
-                value="gemini-2.5-flash"
-            )
+            with gr.Row():
+                input_model = gr.Dropdown(
+                    label="Pilih Versi Model Gemini",
+                    choices=[
+                        "gemini-2.5-flash",
+                        "gemini-2.5-pro",
+                        "gemini-3.0-flash",
+                        "gemini-3.0-pro",
+                        "gemini-3.5-flash",
+                        "gemini-3.5-pro",
+                        "gemini-3.6-flash"
+                    ],
+                    value="gemini-2.5-flash",
+                    scale=4
+                )
             
             btn_generate = gr.Button("🚀 Bikin Video Sekarang", variant="primary")
         
@@ -119,5 +129,6 @@ with gr.Blocks(theme=gr.themes.Soft(), css="footer {display: none !important;}")
 if __name__ == "__main__":
     ui.launch(
         server_name="0.0.0.0",
-        server_port=int(os.environ.get("PORT", 7860))
+        server_port=int(os.environ.get("PORT", 7860)),
+        favicon_path="assets/favicon.png"
     )
