@@ -1358,7 +1358,12 @@ def render_final_video(
             "ERROR SAAT RENDER VIDEO:"
         )
 
-        print(e)
+        print(
+            f"{type(e).__name__}: {e}"
+        )
+
+        import traceback
+        traceback.print_exc()
 
         return None
 
