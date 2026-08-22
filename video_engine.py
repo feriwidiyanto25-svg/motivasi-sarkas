@@ -890,7 +890,6 @@ def create_text_clip(
     duration,
     stroke_width
 ):
-
     return (
         TextClip(
             text,
@@ -901,7 +900,7 @@ def create_text_clip(
                 TEXT_WIDTH,
                 None
             ),
-            font="Arial-Bold",
+            font="DejaVu-Sans-Bold",
             align="center",
             stroke_color="black",
             stroke_width=stroke_width
