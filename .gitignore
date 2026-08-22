@@ -1,0 +1,36 @@
+# Secrets
+.env
+.env.*
+!.env.example
+
+# Python
+__pycache__/
+*.py[cod]
+*.pyo
+
+# Virtual environment
+env/
+venv/
+.venv/
+
+# Temporary files
+temp/
+tmp/
+
+# Local ImageMagick
+ImageMagick/
+
+# Installers / binaries
+*.exe
+*.AppImage
+
+# IDE
+.vscode/
+.idea/
+
+# OS
+Thumbs.db
+.DS_Store
+
+# Git
+.git/
