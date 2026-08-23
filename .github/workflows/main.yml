@@ -11,14 +11,23 @@ jobs:
       PEXELS_API_KEY: ${{ secrets.PEXELS_API_KEY }}
 
     steps:
+      # ==========================================
+      # CHECKOUT
+      # ==========================================
       - name: Checkout repository
         uses: actions/checkout@v4
 
+      # ==========================================
+      # PYTHON
+      # ==========================================
       - name: Setup Python
         uses: actions/setup-python@v5
         with:
           python-version: "3.11"
 
+      # ==========================================
+      # RUNNER INFO
+      # ==========================================
       - name: Show runner resources
         run: |
           echo "===================================="
@@ -41,15 +50,76 @@ jobs:
           echo "PYTHON:"
           python --version
 
+      # ==========================================
+      # SYSTEM DEPENDENCIES
+      # ==========================================
       - name: Install system dependencies
         run: |
           sudo apt-get update
+
           sudo apt-get install -y \
             ffmpeg \
-            imagemagick
+            imagemagick \
+            fonts-dejavu
 
+      # ==========================================
+      # IMAGEMAGICK POLICY
+      # ==========================================
+      - name: Configure ImageMagick for MoviePy
+        run: |
+          echo "===================================="
+          echo "   IMAGEMAGICK CONFIGURATION"
+          echo "===================================="
+
+          echo ""
+          echo "ImageMagick version:"
+          convert --version | head -n 3
+
+          echo ""
+          echo "Searching policy.xml..."
+
+          POLICY_FILES=$(find /etc/ImageMagick* -name policy.xml 2>/dev/null || true)
+
+          if [ -z "$POLICY_FILES" ]; then
+            echo "❌ policy.xml tidak ditemukan."
+            exit 1
+          fi
+
+          echo "$POLICY_FILES"
+
+          echo ""
+          echo "Applying MoviePy path policy fix..."
+
+          for POLICY_FILE in $POLICY_FILES; do
+            echo "Processing: $POLICY_FILE"
+
+            sudo sed -i \
+              's#<policy domain="path" rights="none" pattern="@\*"/>#<!-- MoviePy @ path restriction disabled -->#g' \
+              "$POLICY_FILE"
+          done
+
+          echo ""
+          echo "Checking remaining @ path restrictions..."
+
+          for POLICY_FILE in $POLICY_FILES; do
+            echo "---- $POLICY_FILE ----"
+            grep -n 'domain="path"' "$POLICY_FILE" || true
+          done
+
+          echo ""
+          echo "ImageMagick policy:"
+          identify -list policy
+
+      # ==========================================
+      # FFMPEG + IMAGEMAGICK
+      # ==========================================
       - name: Show FFmpeg and ImageMagick
         run: |
+          echo "===================================="
+          echo "       FFMPEG / IMAGEMAGICK"
+          echo "===================================="
+
+          echo ""
           echo "FFmpeg:"
           ffmpeg -version | head -n 1
 
@@ -57,6 +127,9 @@ jobs:
           echo "ImageMagick:"
           convert --version | head -n 2
 
+      # ==========================================
+      # PYTHON DEPENDENCIES
+      # ==========================================
       - name: Install Python dependencies
         run: |
           python -m pip install --upgrade pip
@@ -67,6 +140,9 @@ jobs:
             requests \
             python-dotenv
 
+      # ==========================================
+      # IMPORT TEST
+      # ==========================================
       - name: Verify project imports
         run: |
           python - <<'PY'
@@ -81,6 +157,9 @@ jobs:
           print("Dotenv  : OK")
           PY
 
+      # ==========================================
+      # PEXELS SECRET
+      # ==========================================
       - name: Verify Pexels secret
         run: |
           if [ -z "$PEXELS_API_KEY" ]; then
@@ -90,6 +169,9 @@ jobs:
 
           echo "✅ PEXELS_API_KEY tersedia."
 
+      # ==========================================
+      # RENDER VIDEO TEST
+      # ==========================================
       - name: Render test video
         run: |
           python - <<'PY'
@@ -148,6 +230,9 @@ jobs:
 
           print("✅ VIDEO BERHASIL DIBUAT.")
 
+      # ==========================================
+      # SHOW GENERATED FILES
+      # ==========================================
       - name: Show generated files
         run: |
           echo "===================================="
@@ -163,6 +248,9 @@ jobs:
           echo "MEMORY AFTER RENDER:"
           free -h
 
+      # ==========================================
+      # UPLOAD VIDEO AS ARTIFACT
+      # ==========================================
       - name: Upload rendered video
         uses: actions/upload-artifact@v4
         with:
@@ -171,6 +259,9 @@ jobs:
           if-no-files-found: error
           retention-days: 1
 
+      # ==========================================
+      # DONE
+      # ==========================================
       - name: Render test completed
         run: |
           echo ""
