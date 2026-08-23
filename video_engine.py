@@ -44,6 +44,7 @@ from moviepy.editor import (
     VideoFileClip,
     TextClip,
     CompositeVideoClip,
+    concatenate_videoclips,
     AudioFileClip,
     CompositeAudioClip,
     ColorClip,
@@ -1316,7 +1317,8 @@ def render_final_video(
 
             source_video = (
                 VideoFileClip(
-                    bg_path
+                    bg_path,
+                    audio=False
                 )
             )
 
@@ -1407,16 +1409,94 @@ def render_final_video(
         )
 
         # ==================================
-        # COMPOSITE
+        # COMPOSITE (MEMORY OPTIMIZED)
         # ==================================
-        final_video = (
-            CompositeVideoClip(
-                [video] + text_clips,
-                size=(
-                    VIDEO_WIDTH,
-                    VIDEO_HEIGHT
-                )
+        # Hanya satu text clip yang aktif pada satu segmen.
+        # Ini menghindari CompositeVideoClip besar yang menampung
+        # title + setup 1 + setup 2 + punchline sekaligus.
+        title_clip, setup1_clip, setup2_clip, punchline_clip = text_clips
+
+        segment_specs = [
+            (
+                timings["start_title"],
+                timings["dur_title"],
+                title_clip,
+                "title"
+            ),
+            (
+                timings["start_setup1"],
+                timings["dur_setup1"],
+                setup1_clip,
+                "setup1"
+            ),
+            (
+                timings["start_setup2"],
+                timings["dur_setup2"],
+                setup2_clip,
+                "setup2"
+            ),
+            (
+                timings["start_punchline"] - PUNCHLINE_PAUSE,
+                PUNCHLINE_PAUSE,
+                None,
+                "pause"
+            ),
+            (
+                timings["start_punchline"],
+                timings["dur_punchline"],
+                punchline_clip,
+                "punchline"
             )
+        ]
+
+        composed_segments = []
+
+        for start, duration, text_clip, segment_name in segment_specs:
+
+            segment_bg = (
+                video
+                .subclip(
+                    start,
+                    start + duration
+                )
+                .set_duration(duration)
+            )
+
+            if text_clip is not None:
+                segment_text = (
+                    text_clip
+                    .set_start(0)
+                    .set_duration(duration)
+                )
+
+                segment = (
+                    CompositeVideoClip(
+                        [segment_bg, segment_text],
+                        size=(
+                            VIDEO_WIDTH,
+                            VIDEO_HEIGHT
+                        )
+                    )
+                    .set_duration(duration)
+                )
+            else:
+                segment = segment_bg
+
+            composed_segments.append(segment)
+
+            print(
+                f"Segment {segment_name}: {duration:.2f}s"
+            )
+
+        # Chain lebih hemat dibanding satu CompositeVideoClip
+        # yang menampung seluruh text clip sekaligus.
+        final_video = concatenate_videoclips(
+            composed_segments,
+            method="chain"
+        )
+
+        final_video = (
+            final_video
             .set_duration(
                 timings["total_duration"]
             )
@@ -1467,6 +1547,7 @@ def render_final_video(
             codec="libx264",
             audio_codec="aac",
             preset="ultrafast",
+            threads=1,
             logger=None
         )
 
