@@ -1,18 +1,27 @@
-name: Test Motivasi Sarkas Render
+name: Motivasi Sarkas Render
 
 on:
-  workflow_dispatch:
+  repository_dispatch:
+    types:
+      - render_video
 
 jobs:
-  render-test:
+  render-video:
     runs-on: ubuntu-latest
 
     env:
+      # Pexels tetap menggunakan GitHub Secret.
       PEXELS_API_KEY: ${{ secrets.PEXELS_API_KEY }}
 
+      # Parameter dikirim oleh aplikasi Railway.
+      TOPIK: ${{ github.event.client_payload.topik }}
+      API_KEY: ${{ github.event.client_payload.api_key }}
+      MODEL_PILIHAN: ${{ github.event.client_payload.model_pilihan }}
+
     steps:
+
       # ==========================================
-      # CHECKOUT
+      # CHECKOUT PROJECT
       # ==========================================
       - name: Checkout repository
         uses: actions/checkout@v4
@@ -31,7 +40,7 @@ jobs:
       - name: Show runner resources
         run: |
           echo "===================================="
-          echo "       GITHUB RUNNER"
+          echo "       GITHUB RENDER RUNNER"
           echo "===================================="
 
           echo ""
@@ -49,6 +58,50 @@ jobs:
           echo ""
           echo "PYTHON:"
           python --version
+
+      # ==========================================
+      # MASK API KEY
+      # ==========================================
+      - name: Protect runtime API key
+        shell: bash
+        run: |
+          if [ -z "$API_KEY" ]; then
+            echo "❌ API Key Gemini tidak diterima."
+            exit 1
+          fi
+
+          echo "::add-mask::$API_KEY"
+          echo "✅ Gemini API Key diterima."
+
+      # ==========================================
+      # VALIDATE INPUT
+      # ==========================================
+      - name: Validate render parameters
+        shell: bash
+        run: |
+          echo "===================================="
+          echo "       RENDER PARAMETERS"
+          echo "===================================="
+
+          if [ -z "$TOPIK" ]; then
+            echo "❌ Topik kosong."
+            exit 1
+          fi
+
+          if [ -z "$MODEL_PILIHAN" ]; then
+            echo "❌ Model Gemini kosong."
+            exit 1
+          fi
+
+          if [ -z "$PEXELS_API_KEY" ]; then
+            echo "❌ PEXELS_API_KEY belum diset."
+            exit 1
+          fi
+
+          echo "Topik : $TOPIK"
+          echo "Model : $MODEL_PILIHAN"
+          echo "Gemini API Key : [MASKED]"
+          echo "Pexels API Key : [MASKED]"
 
       # ==========================================
       # SYSTEM DEPENDENCIES
@@ -88,7 +141,7 @@ jobs:
           echo "$POLICY_FILES"
 
           echo ""
-          echo "Applying MoviePy path policy fix..."
+          echo "Applying MoviePy policy fix..."
 
           for POLICY_FILE in $POLICY_FILES; do
             echo "Processing: $POLICY_FILE"
@@ -99,33 +152,12 @@ jobs:
           done
 
           echo ""
-          echo "Checking remaining @ path restrictions..."
+          echo "Remaining path policies:"
 
           for POLICY_FILE in $POLICY_FILES; do
             echo "---- $POLICY_FILE ----"
             grep -n 'domain="path"' "$POLICY_FILE" || true
           done
-
-          echo ""
-          echo "ImageMagick policy:"
-          identify -list policy
-
-      # ==========================================
-      # FFMPEG + IMAGEMAGICK
-      # ==========================================
-      - name: Show FFmpeg and ImageMagick
-        run: |
-          echo "===================================="
-          echo "       FFMPEG / IMAGEMAGICK"
-          echo "===================================="
-
-          echo ""
-          echo "FFmpeg:"
-          ffmpeg -version | head -n 1
-
-          echo ""
-          echo "ImageMagick:"
-          convert --version | head -n 2
 
       # ==========================================
       # PYTHON DEPENDENCIES
@@ -135,13 +167,15 @@ jobs:
           python -m pip install --upgrade pip
 
           pip install \
+            "numpy<2" \
             moviepy==1.0.3 \
             pillow \
             requests \
-            python-dotenv
+            python-dotenv \
+            google-generativeai
 
       # ==========================================
-      # IMPORT TEST
+      # VERIFY IMPORTS
       # ==========================================
       - name: Verify project imports
         run: |
@@ -150,65 +184,102 @@ jobs:
           import PIL
           import requests
           import dotenv
+          import google.generativeai
 
           print("MoviePy :", moviepy.__version__)
           print("Pillow  :", PIL.__version__)
           print("Requests: OK")
           print("Dotenv  : OK")
+          print("Gemini  : OK")
           PY
 
       # ==========================================
-      # PEXELS SECRET
+      # START RENDER
       # ==========================================
-      - name: Verify Pexels secret
-        run: |
-          if [ -z "$PEXELS_API_KEY" ]; then
-            echo "❌ PEXELS_API_KEY belum diset."
-            exit 1
-          fi
-
-          echo "✅ PEXELS_API_KEY tersedia."
-
-      # ==========================================
-      # RENDER VIDEO TEST
-      # ==========================================
-      - name: Render test video
+      - name: Render video
+        shell: bash
         run: |
           python - <<'PY'
           import os
+
+          from ai_generator import generate_naskah
           from video_engine import render_final_video
 
-          naskah = {
-              "title": "KERJA KERAS PASTI ADA HASILNYA",
-              "setup_1": "Kerja udah kayak kuda, tapi kok gak kaya-kaya?",
-              "setup_2": "Sebenarnya kerja kerasmu itu lagi menumpuk kekayaan.",
-              "punchline": "Cuma bukan di rekening kamu.",
-              "visual_context": "tired office worker working at a desk",
-              "bg_keywords": [
-                  "tired office worker",
-                  "exhausted employee",
-                  "office worker stress"
-              ],
-              "bg_keyword": "tired office worker"
-          }
+          topik = os.environ["TOPIK"]
+          api_key = os.environ["API_KEY"]
+          model_pilihan = os.environ["MODEL_PILIHAN"]
 
           print("")
           print("====================================")
-          print("       MULAI TEST RENDER")
+          print("       MOTIVASI SARKAS RENDER")
           print("====================================")
 
-          output = render_final_video(naskah)
+          print("")
+          print("Topik:")
+          print(topik)
+
+          print("")
+          print("Model:")
+          print(model_pilihan)
+
+          print("")
+          print("1. Menghubungi Gemini AI...")
+
+          naskah_json = generate_naskah(
+              topik,
+              api_key=api_key,
+              model_name=model_pilihan
+          )
+
+          if not isinstance(naskah_json, dict):
+              raise RuntimeError(
+                  "Response Gemini bukan object JSON."
+              )
+
+          if "error" in naskah_json:
+              raise RuntimeError(
+                  f"Gemini error: {naskah_json['error']}"
+              )
+
+          print("")
+          print("✅ Naskah berhasil dibuat.")
 
           print("")
           print("====================================")
-          print("       HASIL TEST RENDER")
+          print("NASKAH")
           print("====================================")
 
-          print("Output:", output)
+          print(
+              f"Title     : "
+              f"{naskah_json.get('title')}"
+          )
+
+          print(
+              f"Setup 1   : "
+              f"{naskah_json.get('setup_1')}"
+          )
+
+          print(
+              f"Setup 2   : "
+              f"{naskah_json.get('setup_2')}"
+          )
+
+          print(
+              f"Punchline : "
+              f"{naskah_json.get('punchline')}"
+          )
+
+          print("")
+          print("2. Menyerahkan naskah ke Mesin Video...")
+
+          output = render_final_video(
+              naskah_json
+          )
 
           if not output:
               raise RuntimeError(
-                  "render_final_video() mengembalikan None."
+                  "render_final_video() "
+                  "mengembalikan None."
               )
 
           if not os.path.exists(output):
@@ -216,27 +287,39 @@ jobs:
                   f"File output tidak ditemukan: {output}"
               )
 
-          size = os.path.getsize(output)
+          file_size = os.path.getsize(output)
+
+          print("")
+          print("====================================")
+          print("       VIDEO SELESAI DIBUAT")
+          print("====================================")
 
           print(
-              f"Ukuran video: "
-              f"{size / 1024 / 1024:.2f} MB"
+              f"Output : {output}"
           )
 
-          if size < 1000:
+          print(
+              f"Size   : "
+              f"{file_size / 1024 / 1024:.2f} MB"
+          )
+
+          if file_size < 1000:
               raise RuntimeError(
-                  "File video terlalu kecil."
+                  "Video output terlalu kecil."
               )
 
-          print("✅ VIDEO BERHASIL DIBUAT.")
+          print("")
+          print("✅ RENDER BERHASIL.")
+
+          PY
 
       # ==========================================
-      # SHOW GENERATED FILES
+      # SHOW RESULT
       # ==========================================
       - name: Show generated files
         run: |
           echo "===================================="
-          echo "       FILE HASIL RENDER"
+          echo "       HASIL RENDER"
           echo "===================================="
 
           find temp \
@@ -245,26 +328,26 @@ jobs:
             -printf "%p - %s bytes\n"
 
           echo ""
-          echo "MEMORY AFTER RENDER:"
+          echo "MEMORY:"
           free -h
 
       # ==========================================
-      # UPLOAD VIDEO AS ARTIFACT
+      # UPLOAD VIDEO ARTIFACT
       # ==========================================
       - name: Upload rendered video
         uses: actions/upload-artifact@v4
         with:
-          name: motivasi-sarkas-test-video
+          name: motivasi-sarkas-video-${{ github.run_id }}
           path: temp/final_*.mp4
           if-no-files-found: error
           retention-days: 1
 
       # ==========================================
-      # DONE
+      # COMPLETE
       # ==========================================
-      - name: Render test completed
+      - name: Render completed
         run: |
           echo ""
           echo "===================================="
-          echo "       TEST SELESAI"
+          echo "       JOB SELESAI"
           echo "===================================="
