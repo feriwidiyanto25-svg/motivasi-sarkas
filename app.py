@@ -310,6 +310,7 @@ def buat_video_motivasi(topik, api_key, model_pilihan):
                 interactive=True,
                 value="🚀 Bikin Video Sekarang",
             ),
+            gr.update(visible=False),
         )
 
     try:
@@ -448,12 +449,79 @@ except Exception as e:
     print(f"Favicon tidak dapat dimuat: {e}")
 
 
+# ==========================================
+# LOADING OVERLAY
+# ==========================================
+LOADING_OVERLAY = r"""
+<div style="
+    position: fixed;
+    inset: 0;
+    z-index: 999999;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: rgba(0, 0, 0, 0.72);
+    backdrop-filter: blur(4px);
+    pointer-events: all;
+">
+    <div style="
+        min-width: 260px;
+        max-width: 88vw;
+        padding: 28px 30px;
+        border-radius: 18px;
+        text-align: center;
+        background: rgba(30, 35, 50, 0.97);
+        box-shadow: 0 18px 50px rgba(0, 0, 0, 0.35);
+    ">
+        <div style="
+            width: 42px;
+            height: 42px;
+            margin: 0 auto;
+            border: 4px solid rgba(255, 255, 255, 0.22);
+            border-top-color: #6c63ff;
+            border-radius: 50%;
+            animation: motivasi-spin 0.9s linear infinite;
+        "></div>
+
+        <div style="
+            margin-top: 16px;
+            font-size: 21px;
+            font-weight: 700;
+            color: #ffffff !important;
+        ">
+            🎬 Sedang Merakit Video
+        </div>
+
+        <div style="
+            margin-top: 8px;
+            font-size: 14px;
+            color: #d8dce8 !important;
+            opacity: 1 !important;
+        ">
+            Mohon tunggu sebentar...
+        </div>
+    </div>
+</div>
+
+<style>
+@keyframes motivasi-spin {
+    to { transform: rotate(360deg); }
+}
+</style>
+"""
+
+
 with gr.Blocks(
     title="Motivasi Sarkas",
     theme=gr.themes.Soft(),
     css="footer {display: none !important;}",
     head=FAVICON_HEAD
 ) as ui:
+
+    loading_overlay = gr.HTML(
+        LOADING_OVERLAY,
+        visible=False
+    )
 
     gr.Markdown("# 🎬 Motivasi Sarkas Generator")
     gr.Markdown("Ketik keresahanmu, masukkan API Key, dan hasilkan video pendek otomatis.")
@@ -541,12 +609,13 @@ with gr.Blocks(
     # =========================
     btn_generate.click(
         fn=lambda t, k, m: (
-            "⏳ Processing...",
-            "⏳ Processing...",
+            "",
+            "",
             gr.update(
                 interactive=False,
                 value="⏳ Sedang Merakit Video..."
-            )
+            ),
+            gr.update(visible=True)
         ),
         inputs=[
             input_topik,
@@ -556,7 +625,8 @@ with gr.Blocks(
         outputs=[
             status_topik,
             status_key,
-            btn_generate
+            btn_generate,
+            loading_overlay
         ],
         queue=False
     ).then(
@@ -573,7 +643,8 @@ with gr.Blocks(
             status_key,
             output_naskah,
             output_video,
-            btn_generate
+            btn_generate,
+            loading_overlay
         ]
     )
 
