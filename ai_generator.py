@@ -50,6 +50,7 @@ def extract_json(text):
 # ==========================================
 def validate_result(hasil):
     required_fields = [
+        "title",
         "setup_1",
         "setup_2",
         "punchline",
@@ -72,6 +73,7 @@ def validate_result(hasil):
     # STRING FIELD
     # ------------------------------------------
     string_fields = [
+        "title",
         "setup_1",
         "setup_2",
         "punchline",
@@ -152,6 +154,10 @@ def validate_result(hasil):
     # ------------------------------------------
     # VALIDASI PANJANG TEKS
     # ------------------------------------------
+    title_words = len(
+        hasil["title"].split()
+    )
+
     setup1_words = len(
         hasil["setup_1"].split()
     )
@@ -163,6 +169,16 @@ def validate_result(hasil):
     punchline_words = len(
         hasil["punchline"].split()
     )
+
+    if title_words > 9:
+        return (
+            None,
+            (
+                "Title terlalu panjang. "
+                f"Maksimal 9 kata, "
+                f"hasil: {title_words}."
+            )
+        )
 
     if setup1_words > 12:
         return (
@@ -275,6 +291,45 @@ Penonton harus mengalami:
 
 Jangan langsung membuat joke.
 Bangun setup terlebih dahulu.
+
+==================================================
+TITLE / SARCASTIC MOTIVATION HOOK
+==================================================
+
+Fungsi:
+Menjadi slide pembuka seperti thumbnail yang hidup.
+Judul harus menjadi "umpan pertama" sebelum Setup 1.
+
+JUDUL HARUS TERASA SEPERTI DNA "MOTIVASI SARKAS":
+- terdengar seperti nasihat, prinsip hidup, motivasi, atau kalimat bijak
+- tetapi memiliki ironi atau makna yang bisa dipelintir
+- relevan langsung dengan keresahan user
+- selaras dengan Setup 1, Setup 2, dan Punchline
+- membangun rasa penasaran tanpa membocorkan punchline
+- terasa cerdas, santai, relatable, dan deadpan
+- bukan sekadar mengulang kata-kata dari Setup 1
+- bukan judul berita
+- bukan clickbait kosong
+- jangan selalu menggunakan "Kamu...", "Jangan...", atau "Ternyata..."
+- pilih sudut sarkas yang paling cocok dengan keseluruhan joke
+
+PENTING:
+Judul harus terdengar seperti MOTIVASI NORMAL pada pandangan pertama,
+lalu setelah penonton melihat isi video, judul tersebut terasa ironis.
+
+Contoh pola (BUKAN template wajib):
+- "Kerja Keras Pasti Membawa Hasil."
+- "Rezeki Memang Tidak Akan Tertukar."
+- "Semua Orang Punya Waktunya Sendiri."
+- "Tetap Bersyukur, Itu Kunci Kebahagiaan."
+
+Buat judul baru yang sesuai topik dan joke.
+Jangan menyalin contoh di atas jika tidak cocok.
+
+Maksimal 9 kata.
+Ideal 4–8 kata.
+
+JANGAN membocorkan punchline di judul.
 
 ==================================================
 SETUP 1 = HOOK
@@ -601,6 +656,7 @@ Tidak ada penjelasan tambahan.
 Format:
 
 {{
+    "title": "...",
     "setup_1": "...",
     "setup_2": "...",
     "punchline": "...",
@@ -668,6 +724,10 @@ Format:
         # ==========================================
         # LOG
         # ==========================================
+        title_words = len(
+            hasil["title"].split()
+        )
+
         setup1_words = len(
             hasil["setup_1"].split()
         )
@@ -683,6 +743,11 @@ Format:
         print("")
         print(
             "========== CONTENT ENGINE =========="
+        )
+
+        print(
+            f"Title     ({title_words} kata): "
+            f"{hasil['title']}"
         )
 
         print(

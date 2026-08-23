@@ -56,6 +56,7 @@ def buat_video_motivasi(topik, api_key, model_pilihan):
     # Format naskah untuk ditampilkan
     formatted_naskah = f"""
 ### 📝 Hasil Naskah:
+* **Judul:** {naskah_json.get('title')}
 * **Setup 1:** {naskah_json.get('setup_1')}
 * **Setup 2:** {naskah_json.get('setup_2')}
 * **Punchline:** {naskah_json.get('punchline')}

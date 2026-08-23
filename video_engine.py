@@ -80,6 +80,9 @@ TARGET_ASPECT_RATIO = (
 # ==========================================
 WORDS_PER_SECOND = 2.7
 
+# Slide pembuka / title
+TITLE_DURATION = 2.2
+
 MIN_SETUP_DURATION = 2.5
 MAX_SETUP_DURATION = 5.0
 
@@ -88,14 +91,17 @@ MAX_PUNCHLINE_DURATION = 3.0
 
 PUNCHLINE_PAUSE = 0.5
 
-MIN_TOTAL_DURATION = 7.0
-MAX_TOTAL_DURATION = 15.0
+# Video tidak lagi dipaksa sekitar 10 detik.
+# Durasi mengikuti kebutuhan joke, dengan batas yang lebih longgar.
+MIN_TOTAL_DURATION = 9.0
+MAX_TOTAL_DURATION = 18.0
 
 # ==========================================
 # TEXT
 # ==========================================
 TEXT_WIDTH = 580
 
+TITLE_FONT_SIZE = 82
 SETUP_FONT_SIZE = 60
 PUNCHLINE_FONT_SIZE = 75
 
@@ -149,6 +155,11 @@ def calculate_reading_duration(
 # ==========================================
 def calculate_timings(naskah):
 
+    title = naskah.get(
+        "title",
+        ""
+    )
+
     setup1 = naskah.get(
         "setup_1",
         ""
@@ -164,6 +175,15 @@ def calculate_timings(naskah):
         ""
     )
 
+    # --------------------------------------
+    # TITLE SLIDE
+    # --------------------------------------
+    durasi_title = TITLE_DURATION
+    start_title = 0.0
+
+    # --------------------------------------
+    # CONTENT DURATIONS
+    # --------------------------------------
     durasi_setup1 = (
         calculate_reading_duration(
             setup1,
@@ -188,7 +208,11 @@ def calculate_timings(naskah):
         )
     )
 
-    start_setup1 = 0.0
+    # Setup 1 dimulai setelah title slide.
+    start_setup1 = (
+        start_title
+        + durasi_title
+    )
 
     start_setup2 = (
         start_setup1
@@ -239,7 +263,7 @@ def calculate_timings(naskah):
             - MAX_TOTAL_DURATION
         )
 
-        # Kurangi setup 2
+        # Kurangi setup 2 terlebih dahulu
         pengurangan = min(
             kelebihan,
             max(
@@ -249,15 +273,10 @@ def calculate_timings(naskah):
             )
         )
 
-        durasi_setup2 -= (
-            pengurangan
-        )
+        durasi_setup2 -= pengurangan
+        kelebihan -= pengurangan
 
-        kelebihan -= (
-            pengurangan
-        )
-
-        # Kurangi setup 1
+        # Jika masih terlalu panjang, kurangi setup 1
         if kelebihan > 0:
 
             pengurangan = min(
@@ -269,14 +288,10 @@ def calculate_timings(naskah):
                 )
             )
 
-            durasi_setup1 -= (
-                pengurangan
-            )
+            durasi_setup1 -= pengurangan
+            kelebihan -= pengurangan
 
-            kelebihan -= (
-                pengurangan
-            )
-
+        # Recalculate positions
         start_setup2 = (
             start_setup1
             + durasi_setup1
@@ -296,6 +311,12 @@ def calculate_timings(naskah):
     print("")
     print(
         "========== DYNAMIC TIMING =========="
+    )
+
+    print(
+        f"Title      : "
+        f"{count_words(title)} kata "
+        f"→ {durasi_title:.2f}s"
     )
 
     print(
@@ -332,6 +353,9 @@ def calculate_timings(naskah):
     print("")
 
     return {
+        "start_title": start_title,
+        "dur_title": durasi_title,
+
         "start_setup1": start_setup1,
         "dur_setup1": durasi_setup1,
 
@@ -929,6 +953,30 @@ def generate_text_overlay(
         "Membuat tata letak teks..."
     )
 
+    # --------------------------------------
+    # TITLE / OPENING HOOK
+    # --------------------------------------
+    title_text = (
+        naskah.get(
+            "title",
+            ""
+        )
+        .strip()
+        .upper()
+    )
+
+    txt_title = create_text_clip(
+        title_text,
+        TITLE_FONT_SIZE,
+        "yellow",
+        timings["start_title"],
+        timings["dur_title"],
+        4
+    )
+
+    # --------------------------------------
+    # SETUP 1
+    # --------------------------------------
     txt_setup1 = create_text_clip(
         naskah["setup_1"],
         SETUP_FONT_SIZE,
@@ -938,6 +986,9 @@ def generate_text_overlay(
         2
     )
 
+    # --------------------------------------
+    # SETUP 2
+    # --------------------------------------
     txt_setup2 = create_text_clip(
         naskah["setup_2"],
         SETUP_FONT_SIZE,
@@ -947,6 +998,9 @@ def generate_text_overlay(
         2
     )
 
+    # --------------------------------------
+    # PUNCHLINE
+    # --------------------------------------
     txt_punchline = create_text_clip(
         naskah["punchline"],
         PUNCHLINE_FONT_SIZE,
@@ -957,6 +1011,7 @@ def generate_text_overlay(
     )
 
     return [
+        txt_title,
         txt_setup1,
         txt_setup2,
         txt_punchline
