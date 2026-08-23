@@ -26,7 +26,52 @@ def github_headers():
     }
 
 
+def get_recent_github_run_ids():
+    """
+    Ambil ID workflow run yang sudah ada sebelum dispatch.
+    Kita pakai ID ini untuk membedakan run baru dari run lama,
+    sehingga tidak bergantung pada perbedaan waktu server.
+    """
+    url = (
+        "https://api.github.com/repos/"
+        "feriwidiyanto25-svg/motivasi-sarkas/"
+        "actions/runs"
+    )
+
+    response = requests.get(
+        url,
+        headers=github_headers(),
+        params={
+            "event": "repository_dispatch",
+            "branch": "main",
+            "per_page": 20,
+        },
+        timeout=30,
+    )
+
+    if response.status_code != 200:
+        raise RuntimeError(
+            "Gagal membaca workflow runs sebelum dispatch. "
+            f"HTTP {response.status_code}: "
+            f"{response.text[:500]}"
+        )
+
+    runs = response.json().get("workflow_runs", [])
+
+    return {
+        run.get("id")
+        for run in runs
+        if run.get("id")
+    }
+
+
 def trigger_github_render(topik, api_key, model_pilihan):
+    """
+    Trigger GitHub Actions dan kembalikan snapshot ID run
+    sebelum dispatch + waktu lokal sebagai informasi tambahan.
+    """
+    previous_run_ids = get_recent_github_run_ids()
+
     url = (
         "https://api.github.com/repos/"
         "feriwidiyanto25-svg/motivasi-sarkas/dispatches"
@@ -55,10 +100,19 @@ def trigger_github_render(topik, api_key, model_pilihan):
             f"{response.text[:500]}"
         )
 
-    return datetime.now(timezone.utc)
+    print(
+        f"Dispatch berhasil. Run lama yang diabaikan: "
+        f"{len(previous_run_ids)}"
+    )
+
+    return previous_run_ids, datetime.now(timezone.utc)
 
 
-def wait_for_github_run(dispatch_time, timeout_seconds=300):
+def wait_for_github_run(
+    dispatch_info,
+    timeout_seconds=600,
+):
+    previous_run_ids, dispatch_time = dispatch_info
     deadline = time.monotonic() + timeout_seconds
 
     url = (
@@ -74,7 +128,7 @@ def wait_for_github_run(dispatch_time, timeout_seconds=300):
             params={
                 "event": "repository_dispatch",
                 "branch": "main",
-                "per_page": 10,
+                "per_page": 20,
             },
             timeout=30,
         )
@@ -91,40 +145,53 @@ def wait_for_github_run(dispatch_time, timeout_seconds=300):
         candidates = []
 
         for run in runs:
+            run_id = run.get("id")
+
+            if not run_id:
+                continue
+
+            if run_id in previous_run_ids:
+                continue
+
             if run.get("name") != "Motivasi Sarkas Render":
                 continue
 
-            created_at = run.get("created_at")
-            if not created_at:
-                continue
-
-            try:
-                created_at_dt = datetime.fromisoformat(
-                    created_at.replace("Z", "+00:00")
-                )
-            except ValueError:
-                continue
-
-            if created_at_dt >= dispatch_time:
-                candidates.append(run)
+            candidates.append(run)
 
         if candidates:
             candidates.sort(
-                key=lambda item: item.get("created_at", ""),
+                key=lambda item: (
+                    item.get("created_at", ""),
+                    item.get("id", 0),
+                ),
                 reverse=True,
             )
 
             run = candidates[0]
+
             status = run.get("status")
+            conclusion = run.get("conclusion")
 
             print(
                 f"GitHub run #{run.get('id')} "
                 f"status={status} "
-                f"conclusion={run.get('conclusion')}"
+                f"conclusion={conclusion}"
             )
 
             if status == "completed":
                 return run
+
+        # Jika GitHub butuh sedikit waktu untuk membuat run,
+        # terus polling sampai deadline.
+        elapsed = int(
+            time.monotonic()
+            - (deadline - timeout_seconds)
+        )
+
+        print(
+            f"Menunggu GitHub run... "
+            f"{elapsed}s"
+        )
 
         time.sleep(3)
 
@@ -302,8 +369,6 @@ def buat_video_motivasi(topik, api_key, model_pilihan):
         return (
             err_topik_html,
             err_key_html,
-            "",
-            "",
             "⚠️ Mohon lengkapi kolom yang masih kosong di atas.",
             None,
             gr.update(
@@ -390,14 +455,13 @@ def buat_video_motivasi(topik, api_key, model_pilihan):
         return (
             err_topik_html,
             err_key_html,
-            "",
-            "",
             formatted_naskah,
             video_path,
             gr.update(
                 interactive=True,
                 value="🚀 Bikin Video Sekarang",
             ),
+            gr.update(visible=False),
         )
 
     except Exception as e:
@@ -411,14 +475,13 @@ def buat_video_motivasi(topik, api_key, model_pilihan):
         return (
             err_topik_html,
             err_key_html,
-            "",
-            "",
             f"❌ Error: {str(e)}",
             None,
             gr.update(
                 interactive=True,
                 value="🚀 Bikin Video Sekarang",
             ),
+            gr.update(visible=False),
         )
 
 
@@ -532,35 +595,21 @@ with gr.Blocks(
             # =========================
             # TOPIK
             # =========================
-            with gr.Row():
-                input_topik = gr.Textbox(
-                    label="Topik / Keresahan Hari Ini",
-                    placeholder="Contoh: Gaji numpang lewat di awal bulan...",
-                    scale=4
-                )
-
-                status_topik = gr.Markdown(
-                    "",
-                    scale=1
-                )
+            input_topik = gr.Textbox(
+                label="Topik / Keresahan Hari Ini",
+                placeholder="Contoh: Gaji numpang lewat di awal bulan..."
+            )
 
             output_err_topik = gr.HTML("")
 
             # =========================
             # API KEY
             # =========================
-            with gr.Row():
-                input_apikey = gr.Textbox(
-                    label="Gemini API Key",
-                    placeholder="Masukkan API Key Gemini...",
-                    type="password",
-                    scale=4
-                )
-
-                status_key = gr.Markdown(
-                    "",
-                    scale=4
-                )
+            input_apikey = gr.Textbox(
+                label="Gemini API Key",
+                placeholder="Masukkan API Key Gemini...",
+                type="password"
+            )
 
             output_err_key = gr.HTML("")
 
@@ -609,8 +658,6 @@ with gr.Blocks(
     # =========================
     btn_generate.click(
         fn=lambda t, k, m: (
-            "",
-            "",
             gr.update(
                 interactive=False,
                 value="⏳ Sedang Merakit Video..."
@@ -623,8 +670,6 @@ with gr.Blocks(
             input_model
         ],
         outputs=[
-            status_topik,
-            status_key,
             btn_generate,
             loading_overlay
         ],
@@ -639,14 +684,13 @@ with gr.Blocks(
         outputs=[
             output_err_topik,
             output_err_key,
-            status_topik,
-            status_key,
             output_naskah,
             output_video,
             btn_generate,
             loading_overlay
         ]
     )
+
 
 
 if __name__ == "__main__":
