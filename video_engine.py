@@ -745,31 +745,29 @@ def fetch_background_video(
     )
 
     # ======================================
-    # DOWNLOAD
+    # DOWNLOAD + VALIDATE BACKGROUND
     # ======================================
-    try:
+    os.makedirs(
+        "temp",
+        exist_ok=True
+    )
+
+    # Coba beberapa kandidat terbaik sampai menemukan
+    # file yang benar-benar bisa dibaca MoviePy/FFmpeg.
+    for candidate_index, candidate in enumerate(ranked[:4], start=1):
+
+        selected_video = candidate["video"]
+        selected_file = candidate["file"]
 
         video_url = selected_file.get(
             "link"
         )
 
-        response = requests.get(
-            video_url,
-            timeout=60
-        )
-
-        if response.status_code != 200:
-
+        if not video_url:
             print(
-                "Download background gagal."
+                f"Kandidat #{candidate_index}: link video kosong."
             )
-
-            return None
-
-        os.makedirs(
-            "temp",
-            exist_ok=True
-        )
+            continue
 
         unique_id = uuid.uuid4().hex[:12]
 
@@ -778,37 +776,129 @@ def fetch_background_video(
             f"bg_{unique_id}.mp4"
         )
 
-        with open(
-            output_path,
-            "wb"
-        ) as file:
+        try:
 
-            file.write(
-                response.content
+            print(
+                f"Download kandidat background #{candidate_index}..."
             )
 
-        print(
-            f"Background tersimpan: "
-            f"{output_path}"
-        )
+            response = requests.get(
+                video_url,
+                timeout=60
+            )
 
-        return output_path
+            if response.status_code != 200:
 
-    except requests.RequestException as e:
+                print(
+                    f"Download gagal. HTTP {response.status_code}."
+                )
+                continue
 
-        print(
-            f"Download Pexels error: {e}"
-        )
+            content = response.content
 
-        return None
+            # File yang sangat kecil hampir pasti bukan video valid.
+            if len(content) < 10000:
 
-    except Exception as e:
+                print(
+                    f"File background terlalu kecil: {len(content)} bytes."
+                )
+                continue
 
-        print(
-            f"Background download error: {e}"
-        )
+            with open(
+                output_path,
+                "wb"
+            ) as file:
 
-        return None
+                file.write(content)
+
+            print(
+                f"Background tersimpan: {output_path}"
+            )
+
+            # Validasi langsung dengan MoviePy. Konstruktor VideoFileClip
+            # membaca frame pertama sehingga file yang rusak/tidak kompatibel
+            # akan terdeteksi sebelum masuk ke proses render utama.
+            test_clip = None
+
+            try:
+                test_clip = VideoFileClip(
+                    output_path,
+                    audio=False
+                )
+
+                if (
+                    not test_clip.w
+                    or not test_clip.h
+                    or not test_clip.duration
+                ):
+                    raise ValueError(
+                        "Metadata video tidak valid."
+                    )
+
+                print(
+                    f"Background valid: {test_clip.w}x{test_clip.h}, "
+                    f"{test_clip.duration:.2f}s"
+                )
+
+                return output_path
+
+            except Exception as validation_error:
+
+                print(
+                    "Background tidak dapat dibaca MoviePy/FFmpeg: "
+                    f"{type(validation_error).__name__}: {validation_error}"
+                )
+
+                try:
+                    if test_clip:
+                        test_clip.close()
+                except Exception:
+                    pass
+
+                try:
+                    if os.path.exists(output_path):
+                        os.remove(output_path)
+                except Exception:
+                    pass
+
+                continue
+
+            finally:
+                try:
+                    if test_clip:
+                        test_clip.close()
+                except Exception:
+                    pass
+
+        except requests.RequestException as e:
+
+            print(
+                f"Download Pexels error: {e}"
+            )
+
+            try:
+                if os.path.exists(output_path):
+                    os.remove(output_path)
+            except Exception:
+                pass
+
+        except Exception as e:
+
+            print(
+                f"Background download/validation error: {type(e).__name__}: {e}"
+            )
+
+            try:
+                if os.path.exists(output_path):
+                    os.remove(output_path)
+            except Exception:
+                pass
+
+    print(
+        "Semua kandidat background gagal di-download atau divalidasi."
+    )
+
+    return None
 
 
 # ==========================================

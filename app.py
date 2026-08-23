@@ -1,4 +1,5 @@
 import os
+import base64
 import gradio as gr
 from ai_generator import generate_naskah
 from video_engine import render_final_video
@@ -125,10 +126,38 @@ def buat_video_motivasi(topik, api_key, model_pilihan):
     )
 
 
+# ==========================================
+# FAVICON
+# ==========================================
+BASE_DIR = os.path.dirname(os.path.abspath(__file__))
+FAVICON_PATH = os.path.join(
+    BASE_DIR,
+    "assets",
+    "favicon.png"
+)
+
+# Embed favicon directly in the page head so the browser does not fall
+# back to the default Gradio icon when the favicon file is cached/served late.
+FAVICON_HEAD = ""
+try:
+    with open(FAVICON_PATH, "rb") as favicon_file:
+        favicon_b64 = base64.b64encode(
+            favicon_file.read()
+        ).decode("ascii")
+
+    FAVICON_HEAD = (
+        '<link rel="icon" type="image/png" '
+        f'href="data:image/png;base64,{favicon_b64}">'
+    )
+except Exception as e:
+    print(f"Favicon tidak dapat dimuat: {e}")
+
+
 with gr.Blocks(
     title="Motivasi Sarkas",
     theme=gr.themes.Soft(),
-    css="footer {display: none !important;}"
+    css="footer {display: none !important;}",
+    head=FAVICON_HEAD
 ) as ui:
 
     gr.Markdown("# 🎬 Motivasi Sarkas Generator")
@@ -258,5 +287,5 @@ if __name__ == "__main__":
     ui.launch(
         server_name="0.0.0.0",
         server_port=int(os.environ.get("PORT", 7860)),
-        favicon_path="assets/favicon.png"
+        favicon_path=FAVICON_PATH
     )
