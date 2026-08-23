@@ -516,10 +516,12 @@ except Exception as e:
 # LOADING OVERLAY
 # ==========================================
 LOADING_OVERLAY = r"""
-<div style="
-    position: fixed;
-    inset: 0;
-    z-index: 999999;
+<div id="motivasi-loading-overlay" style="
+    position: fixed !important;
+    inset: 0 !important;
+    width: 100vw !important;
+    height: 100vh !important;
+    z-index: 2147483647 !important;
     display: flex;
     align-items: center;
     justify-content: center;
@@ -577,13 +579,29 @@ LOADING_OVERLAY = r"""
 with gr.Blocks(
     title="Motivasi Sarkas",
     theme=gr.themes.Soft(),
-    css="footer {display: none !important;}",
+    css="""
+    footer { display: none !important; }
+
+    #motivasi-loading-component {
+        margin: 0 !important;
+        padding: 0 !important;
+    }
+
+    #motivasi-loading-overlay {
+        position: fixed !important;
+        inset: 0 !important;
+        width: 100vw !important;
+        height: 100vh !important;
+        z-index: 2147483647 !important;
+    }
+    """,
     head=FAVICON_HEAD
 ) as ui:
 
     loading_overlay = gr.HTML(
         LOADING_OVERLAY,
-        visible=False
+        visible=False,
+        elem_id="motivasi-loading-component"
     )
 
     gr.Markdown("# 🎬 Motivasi Sarkas Generator")
@@ -688,7 +706,8 @@ with gr.Blocks(
             output_video,
             btn_generate,
             loading_overlay
-        ]
+        ],
+        show_progress="hidden"
     )
 
 
