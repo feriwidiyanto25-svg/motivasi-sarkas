@@ -10,58 +10,39 @@ jobs:
     runs-on: ubuntu-latest
 
     env:
-      # Pexels tetap menggunakan GitHub Secret.
       PEXELS_API_KEY: ${{ secrets.PEXELS_API_KEY }}
 
-      # Parameter dikirim oleh aplikasi Railway.
       TOPIK: ${{ github.event.client_payload.topik }}
       API_KEY: ${{ github.event.client_payload.api_key }}
       MODEL_PILIHAN: ${{ github.event.client_payload.model_pilihan }}
 
     steps:
-
-      # ==========================================
-      # CHECKOUT PROJECT
-      # ==========================================
       - name: Checkout repository
         uses: actions/checkout@v4
 
-      # ==========================================
-      # PYTHON
-      # ==========================================
       - name: Setup Python
         uses: actions/setup-python@v5
         with:
           python-version: "3.11"
 
-      # ==========================================
-      # RUNNER INFO
-      # ==========================================
       - name: Show runner resources
         run: |
           echo "===================================="
           echo "       GITHUB RENDER RUNNER"
           echo "===================================="
-
           echo ""
           echo "CPU:"
           nproc
-
           echo ""
           echo "MEMORY:"
           free -h
-
           echo ""
           echo "DISK:"
           df -h .
-
           echo ""
           echo "PYTHON:"
           python --version
 
-      # ==========================================
-      # MASK API KEY
-      # ==========================================
       - name: Protect runtime API key
         shell: bash
         run: |
@@ -73,9 +54,6 @@ jobs:
           echo "::add-mask::$API_KEY"
           echo "✅ Gemini API Key diterima."
 
-      # ==========================================
-      # VALIDATE INPUT
-      # ==========================================
       - name: Validate render parameters
         shell: bash
         run: |
@@ -103,9 +81,6 @@ jobs:
           echo "Gemini API Key : [MASKED]"
           echo "Pexels API Key : [MASKED]"
 
-      # ==========================================
-      # SYSTEM DEPENDENCIES
-      # ==========================================
       - name: Install system dependencies
         run: |
           sudo apt-get update
@@ -115,21 +90,13 @@ jobs:
             imagemagick \
             fonts-dejavu
 
-      # ==========================================
-      # IMAGEMAGICK POLICY
-      # ==========================================
       - name: Configure ImageMagick for MoviePy
         run: |
           echo "===================================="
           echo "   IMAGEMAGICK CONFIGURATION"
           echo "===================================="
 
-          echo ""
-          echo "ImageMagick version:"
           convert --version | head -n 3
-
-          echo ""
-          echo "Searching policy.xml..."
 
           POLICY_FILES=$(find /etc/ImageMagick* -name policy.xml 2>/dev/null || true)
 
@@ -137,11 +104,6 @@ jobs:
             echo "❌ policy.xml tidak ditemukan."
             exit 1
           fi
-
-          echo "$POLICY_FILES"
-
-          echo ""
-          echo "Applying MoviePy policy fix..."
 
           for POLICY_FILE in $POLICY_FILES; do
             echo "Processing: $POLICY_FILE"
@@ -153,15 +115,10 @@ jobs:
 
           echo ""
           echo "Remaining path policies:"
-
           for POLICY_FILE in $POLICY_FILES; do
-            echo "---- $POLICY_FILE ----"
             grep -n 'domain="path"' "$POLICY_FILE" || true
           done
 
-      # ==========================================
-      # PYTHON DEPENDENCIES
-      # ==========================================
       - name: Install Python dependencies
         run: |
           python -m pip install --upgrade pip
@@ -174,9 +131,6 @@ jobs:
             python-dotenv \
             google-generativeai
 
-      # ==========================================
-      # VERIFY IMPORTS
-      # ==========================================
       - name: Verify project imports
         run: |
           python - <<'PY'
@@ -193,13 +147,11 @@ jobs:
           print("Gemini  : OK")
           PY
 
-      # ==========================================
-      # START RENDER
-      # ==========================================
       - name: Render video
         shell: bash
         run: |
           python - <<'PY'
+          import json
           import os
 
           from ai_generator import generate_naskah
@@ -269,6 +221,27 @@ jobs:
               f"{naskah_json.get('punchline')}"
           )
 
+          os.makedirs("temp", exist_ok=True)
+
+          result_path = os.path.join(
+              "temp",
+              "render_result.json"
+          )
+
+          with open(
+              result_path,
+              "w",
+              encoding="utf-8"
+          ) as result_file:
+              json.dump(
+                  {
+                      "naskah": naskah_json
+                  },
+                  result_file,
+                  ensure_ascii=False,
+                  indent=2
+              )
+
           print("")
           print("2. Menyerahkan naskah ke Mesin Video...")
 
@@ -311,11 +284,6 @@ jobs:
           print("")
           print("✅ RENDER BERHASIL.")
 
-          PY
-
-      # ==========================================
-      # SHOW RESULT
-      # ==========================================
       - name: Show generated files
         run: |
           echo "===================================="
@@ -331,23 +299,18 @@ jobs:
           echo "MEMORY:"
           free -h
 
-      # ==========================================
-      # UPLOAD VIDEO ARTIFACT
-      # ==========================================
       - name: Upload rendered video
         uses: actions/upload-artifact@v4
         with:
           name: motivasi-sarkas-video-${{ github.run_id }}
-          path: temp/final_*.mp4
+          path: |
+            temp/final_*.mp4
+            temp/render_result.json
           if-no-files-found: error
           retention-days: 1
 
-      # ==========================================
-      # COMPLETE
-      # ==========================================
       - name: Render completed
         run: |
           echo ""
           echo "===================================="
           echo "       JOB SELESAI"
-          echo "===================================="
