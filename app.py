@@ -604,7 +604,7 @@ with gr.Blocks(
         elem_id="motivasi-loading-component"
     )
 
-    gr.Markdown("# 🎬 Motivasi Sarkas Generator")
+    gr.Markdown("# 🎬 Motivasi Sarkas")
     gr.Markdown("Ketik keresahanmu, masukkan API Key, dan hasilkan video pendek otomatis.")
 
     with gr.Row():
@@ -639,11 +639,8 @@ with gr.Blocks(
                     label="Pilih Versi Model Gemini",
                     choices=[
                         "gemini-2.5-flash",
-                        "gemini-2.5-pro",
-                        "gemini-3.0-flash",
-                        "gemini-3.0-pro",
+                        "gemini-3.0-flash",                       
                         "gemini-3.5-flash",
-                        "gemini-3.5-pro",
                         "gemini-3.6-flash"
                     ],
                     value="gemini-2.5-flash",
