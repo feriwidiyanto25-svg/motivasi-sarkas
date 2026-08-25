@@ -385,8 +385,6 @@ jobs:
                   "Gemini tidak menghasilkan metadata YouTube."
               )
 
-          # Bersihkan markdown fence jika Gemini tetap
-          # mengembalikannya.
           metadata_text = (
               metadata_text
               .replace("```json", "")
@@ -400,6 +398,7 @@ jobs:
               )
 
           except json.JSONDecodeError:
+
               decoder = json.JSONDecoder()
 
               start = metadata_text.find("{")
@@ -440,7 +439,6 @@ jobs:
                       f"Metadata YouTube tidak memiliki field: {field}"
                   )
 
-          # Title YouTube HARUS sama dengan title video.
           youtube_metadata["title"] = (
               naskah_json["title"]
           )
@@ -461,7 +459,6 @@ jobs:
                   "Hashtags YouTube harus berupa array."
               )
 
-          # Bersihkan hashtag.
           hashtags = []
 
           for hashtag in youtube_metadata["hashtags"]:
@@ -484,14 +481,12 @@ jobs:
                   hashtag
               )
 
-          # Hilangkan duplicate.
           hashtags = list(
               dict.fromkeys(
                   hashtags
               )
           )
 
-          # Pastikan hashtag utama selalu ada.
           if "#motivasiSarkas" not in hashtags:
               hashtags.insert(
                   0,
@@ -633,6 +628,42 @@ jobs:
           PY
 
       # ======================================================
+      # GENERATE YOUTUBE THUMBNAIL
+      # ======================================================
+
+      - name: Generate YouTube thumbnail
+        shell: bash
+        run: |
+          echo "===================================="
+          echo "       GENERATE YOUTUBE THUMBNAIL"
+          echo "===================================="
+
+          VIDEO_PATH=$(find temp -maxdepth 1 -type f -name 'final_*.mp4' | head -n 1)
+
+          if [ -z "$VIDEO_PATH" ]; then
+            echo "❌ Video hasil render tidak ditemukan."
+            exit 1
+          fi
+
+          echo "Video : $VIDEO_PATH"
+
+          # Mengambil frame pertama dari video.
+          # Frame pertama adalah opening/title Motivasi Sarkas.
+          ffmpeg -y \
+            -i "$VIDEO_PATH" \
+            -frames:v 1 \
+            -q:v 2 \
+            temp/thumbnail.jpg
+
+          if [ ! -s "temp/thumbnail.jpg" ]; then
+            echo "❌ Thumbnail gagal dibuat."
+            exit 1
+          fi
+
+          echo "✅ Thumbnail berhasil dibuat:"
+          ls -lh temp/thumbnail.jpg
+
+      # ======================================================
       # SHOW GENERATED FILES
       # ======================================================
 
@@ -677,7 +708,7 @@ jobs:
           retention-days: 1
 
       # ======================================================
-      # CALLBACK TO CLOUDFLARE
+      # CLOUDFLARE RENDER CALLBACK
       # ======================================================
 
       - name: Notify Cloudflare render complete
@@ -691,7 +722,7 @@ jobs:
           JOB_STATUS: ${{ job.status }}
         run: |
           if [ -z "$CLOUDFLARE_CALLBACK_URL" ] || [ -z "$JOB_CALLBACK_SECRET" ] || [ -z "$CHAT_ID" ]; then
-            echo "Cloudflare callback dilewati karena konfigurasi belum lengkap."
+            echo "⚠️ Cloudflare callback dilewati karena konfigurasi belum lengkap."
             exit 0
           fi
 
@@ -711,9 +742,10 @@ jobs:
               \"job_type\": \"render\",
               \"status\": \"${STATUS}\",
               \"run_id\": \"${RUN_ID}\"
-            }"
+            }" \
+            || echo "⚠️ Gagal mengirim callback render ke Cloudflare."
 
-          echo "✅ Cloudflare render callback dikirim."
+          echo "✅ Cloudflare render callback selesai."
 
       # ======================================================
       # RENDER COMPLETED
@@ -762,7 +794,7 @@ jobs:
             --data-urlencode "chat_id=${CHAT_ID}" \
             --data-urlencode "text=${MESSAGE}"
 
-          echo "✅ Notifikasi error render dikirim."
+          echo "✅ Notifikasi error render dikirim ke Telegram."
 
 
   # ==========================================================
@@ -917,8 +949,16 @@ jobs:
             exit 1
           fi
 
+          # Thumbnail SEKARANG WAJIB.
+          # Jangan lanjut upload bila thumbnail tidak tersedia.
           if [ -z "$THUMBNAIL_PATH" ]; then
             echo "❌ thumbnail.jpg tidak ditemukan di artifact."
+            echo "Upload YouTube dihentikan agar video tidak ter-upload tanpa thumbnail."
+            exit 1
+          fi
+
+          if [ ! -s "$THUMBNAIL_PATH" ]; then
+            echo "❌ thumbnail.jpg kosong."
             exit 1
           fi
 
@@ -926,18 +966,129 @@ jobs:
           echo "YOUTUBE_JSON=$YOUTUBE_JSON" >> "$GITHUB_ENV"
           echo "THUMBNAIL_PATH=$THUMBNAIL_PATH" >> "$GITHUB_ENV"
 
+          echo ""
+          echo "===================================="
+          echo "       UPLOAD INPUT"
+          echo "===================================="
+
           echo "Video     : $VIDEO_PATH"
           echo "Metadata  : $YOUTUBE_JSON"
           echo "Thumbnail : $THUMBNAIL_PATH"
 
+          echo ""
+          echo "Thumbnail file:"
+          ls -lh "$THUMBNAIL_PATH"
+
       # ======================================================
-      # UPLOAD YOUTUBE
+      # UPLOAD TO YOUTUBE
+      #
+      # youtube_uploader.py:
+      # 1. upload video
+      # 2. mendapatkan video_id
+      # 3. set custom thumbnail
+      # 4. menulis thumbnail_status
+      #
+      # Wrapper di bawah memastikan workflow GAGAL
+      # bila thumbnail belum berhasil diset.
       # ======================================================
 
       - name: Upload to YouTube
         id: upload_youtube
+        shell: bash
         run: |
           python youtube_uploader.py
+
+          if [ ! -f "youtube_upload_result.json" ]; then
+            echo "❌ youtube_upload_result.json tidak ditemukan."
+            exit 1
+          fi
+
+          THUMBNAIL_STATUS=$(python - <<'PY'
+          import json
+
+          with open(
+              "youtube_upload_result.json",
+              "r",
+              encoding="utf-8"
+          ) as f:
+              data = json.load(f)
+
+          print(
+              data.get(
+                  "thumbnail_status",
+                  ""
+              )
+          )
+          PY
+          )
+
+          VIDEO_ID=$(python - <<'PY'
+          import json
+
+          with open(
+              "youtube_upload_result.json",
+              "r",
+              encoding="utf-8"
+          ) as f:
+              data = json.load(f)
+
+          print(
+              data.get(
+                  "video_id",
+                  ""
+              )
+          )
+          PY
+          )
+
+          YOUTUBE_URL=$(python - <<'PY'
+          import json
+
+          with open(
+              "youtube_upload_result.json",
+              "r",
+              encoding="utf-8"
+          ) as f:
+              data = json.load(f)
+
+          print(
+              data.get(
+                  "youtube_url",
+                  ""
+              )
+          )
+          PY
+          )
+
+          echo ""
+          echo "===================================="
+          echo "       YOUTUBE UPLOAD RESULT"
+          echo "===================================="
+
+          echo "Video ID        : ${VIDEO_ID:-[EMPTY]}"
+          echo "YouTube URL     : ${YOUTUBE_URL:-[EMPTY]}"
+          echo "Thumbnail status: ${THUMBNAIL_STATUS:-[EMPTY]}"
+
+          if [ -z "$VIDEO_ID" ]; then
+            echo "❌ Video ID tidak ditemukan."
+            exit 1
+          fi
+
+          if [ "$THUMBNAIL_STATUS" != "success" ]; then
+            echo ""
+            echo "❌ CUSTOM THUMBNAIL BELUM BERHASIL DISET."
+            echo ""
+            echo "Status: ${THUMBNAIL_STATUS:-[EMPTY]}"
+            echo ""
+            echo "Video mungkin sudah berhasil di-upload,"
+            echo "tetapi workflow TIDAK akan dianggap berhasil"
+            echo "karena thumbnail belum berhasil diterapkan."
+            exit 1
+          fi
+
+          echo ""
+          echo "✅ VIDEO BERHASIL DI-UPLOAD."
+          echo "✅ CUSTOM THUMBNAIL BERHASIL DISET."
 
       # ======================================================
       # SEND UPLOAD RESULT TO TELEGRAM
@@ -953,7 +1104,7 @@ jobs:
           python send_upload_result_to_telegram.py
 
       # ======================================================
-      # CALLBACK TO CLOUDFLARE
+      # CLOUDFLARE UPLOAD CALLBACK
       # ======================================================
 
       - name: Notify Cloudflare upload complete
@@ -967,7 +1118,7 @@ jobs:
           UPLOAD_OUTCOME: ${{ steps.upload_youtube.outcome }}
         run: |
           if [ -z "$CLOUDFLARE_CALLBACK_URL" ] || [ -z "$JOB_CALLBACK_SECRET" ] || [ -z "$CHAT_ID" ]; then
-            echo "Cloudflare callback dilewati karena konfigurasi belum lengkap."
+            echo "⚠️ Cloudflare callback dilewati karena konfigurasi belum lengkap."
             exit 0
           fi
 
@@ -987,12 +1138,13 @@ jobs:
               \"job_type\": \"upload\",
               \"status\": \"${STATUS}\",
               \"run_id\": \"${RUN_ID}\"
-            }"
+            }" \
+            || echo "⚠️ Gagal mengirim callback upload ke Cloudflare."
 
-          echo "✅ Cloudflare upload callback dikirim."
+          echo "✅ Cloudflare upload callback selesai."
 
       # ======================================================
-      # CLEANUP YOUTUBE SECRETS
+      # CLEANUP
       # ======================================================
 
       - name: Cleanup YouTube secrets
