@@ -13,7 +13,8 @@ jobs:
       PEXELS_API_KEY: ${{ secrets.PEXELS_API_KEY }}
       TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
 
-      # Telegram flow only. Railway flow leaves this empty.
+      # Hanya diisi oleh Cloudflare Worker.
+      # Railway tetap mengirim payload lama tanpa chat_id.
       CHAT_ID: ${{ github.event.client_payload.chat_id }}
 
       TOPIK: ${{ github.event.client_payload.topik }}
@@ -80,7 +81,6 @@ jobs:
             exit 1
           fi
 
-          # Telegram hanya dibutuhkan jika CHAT_ID dikirim.
           if [ -n "$CHAT_ID" ] && [ -z "$TELEGRAM_BOT_TOKEN" ]; then
             echo "❌ TELEGRAM_BOT_TOKEN belum diset."
             exit 1
@@ -599,88 +599,8 @@ jobs:
 
       - name: Send result to Telegram
         if: ${{ github.event.client_payload.chat_id != '' }}
-        shell: bash
         run: |
-          python - <<'PY'
-          import json
-          import os
-          import requests
-
-          bot_token = os.environ["TELEGRAM_BOT_TOKEN"]
-          chat_id = os.environ["CHAT_ID"]
-
-          if not bot_token:
-              raise RuntimeError("TELEGRAM_BOT_TOKEN belum tersedia.")
-          if not chat_id:
-              raise RuntimeError("CHAT_ID belum tersedia.")
-
-          video_files = [
-              filename
-              for filename in os.listdir("temp")
-              if filename.lower().endswith(".mp4")
-          ]
-          if not video_files:
-              raise RuntimeError("File MP4 hasil render tidak ditemukan.")
-
-          video_path = os.path.join("temp", sorted(video_files)[0])
-          youtube_path = os.path.join("temp", "youtube.json")
-          if not os.path.exists(youtube_path):
-              raise RuntimeError("youtube.json tidak ditemukan.")
-
-          with open(youtube_path, "r", encoding="utf-8") as file:
-              metadata = json.load(file)
-
-          title = metadata.get("title", "")
-          description = metadata.get("description", "")
-          hashtags = metadata.get("hashtags", [])
-
-          caption = "🎬 VIDEO SELESAI\n\n" + f"Title:\n{title}"
-
-          with open(video_path, "rb") as video_file:
-              response = requests.post(
-                  f"https://api.telegram.org/bot{bot_token}/sendVideo",
-                  data={"chat_id": chat_id, "caption": caption[:1024]},
-                  files={"video": (os.path.basename(video_path), video_file, "video/mp4")},
-                  timeout=600,
-              )
-
-          if not response.ok:
-              raise RuntimeError("Gagal mengirim video ke Telegram: " + response.text)
-
-          print("✅ Video berhasil dikirim ke Telegram.")
-
-          metadata_text = (
-              "📝 YOUTUBE METADATA\n\n"
-              f"Title:\n{title}\n\n"
-              f"Description:\n{description}\n\n"
-              f"Hashtags:\n{' '.join(hashtags)}"
-          )
-
-          # Tombol ini belum menjalankan upload; nanti callback ini
-          # ditangani oleh Cloudflare Worker.
-          reply_markup = {
-              "inline_keyboard": [
-                  [{"text": "📺 Upload YouTube", "callback_data": "upload_latest"}]
-              ]
-          }
-
-          response = requests.post(
-              f"https://api.telegram.org/bot{bot_token}/sendMessage",
-              json={
-                  "chat_id": chat_id,
-                  "text": metadata_text,
-                  "reply_markup": reply_markup,
-              },
-              timeout=60,
-          )
-
-          if not response.ok:
-              raise RuntimeError("Gagal mengirim metadata ke Telegram: " + response.text)
-
-          print("✅ Metadata berhasil dikirim ke Telegram.")
-
-PY
-
+          python send_to_telegram.py
 
       - name: Upload rendered video
         uses: actions/upload-artifact@v4
