@@ -604,6 +604,7 @@ jobs:
           name: motivasi-sarkas-video-${{ github.run_id }}
           path: |
             temp/final_*.mp4
+            temp/thumbnail.jpg
             temp/render_result.json
             temp/youtube.json
           if-no-files-found: error
@@ -727,6 +728,7 @@ jobs:
         run: |
           VIDEO_PATH=$(find upload_input -type f -name '*.mp4' | head -n 1)
           YOUTUBE_JSON=$(find upload_input -type f -name 'youtube.json' | head -n 1)
+          THUMBNAIL_PATH=$(find upload_input -type f -name 'thumbnail.jpg' | head -n 1)
 
           if [ -z "$VIDEO_PATH" ]; then
             echo "❌ File video tidak ditemukan di artifact."
@@ -738,11 +740,18 @@ jobs:
             exit 1
           fi
 
+          if [ -z "$THUMBNAIL_PATH" ]; then
+            echo "⚠️ thumbnail.jpg tidak ditemukan di artifact."
+            echo "Upload video tetap dilanjutkan tanpa custom thumbnail."
+          fi
+
           echo "VIDEO_PATH=$VIDEO_PATH" >> "$GITHUB_ENV"
           echo "YOUTUBE_JSON=$YOUTUBE_JSON" >> "$GITHUB_ENV"
+          echo "THUMBNAIL_PATH=$THUMBNAIL_PATH" >> "$GITHUB_ENV"
 
           echo "Video : $VIDEO_PATH"
           echo "Metadata : $YOUTUBE_JSON"
+          echo "Thumbnail : ${THUMBNAIL_PATH:-[NONE]}"
 
       - name: Upload to YouTube
         id: upload_youtube
