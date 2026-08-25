@@ -115,6 +115,7 @@ jobs:
 
           echo ""
           echo "Remaining path policies:"
+
           for POLICY_FILE in $POLICY_FILES; do
             grep -n 'domain="path"' "$POLICY_FILE" || true
           done
@@ -174,6 +175,10 @@ jobs:
           print("Model:")
           print(model_pilihan)
 
+          # ==================================================
+          # 1. GENERATE NASKAH
+          # ==================================================
+
           print("")
           print("1. Menghubungi Gemini AI...")
 
@@ -221,7 +226,279 @@ jobs:
               f"{naskah_json.get('punchline')}"
           )
 
-          os.makedirs("temp", exist_ok=True)
+          # ==================================================
+          # 2. GENERATE YOUTUBE METADATA
+          # ==================================================
+
+          print("")
+          print("2. Membuat metadata YouTube...")
+
+          genai_prompt = f"""
+          Kamu adalah YouTube content strategist untuk channel
+          "Motivasi Sarkas".
+
+          Buat metadata YouTube berdasarkan TOPIK dan NASKAH
+          yang benar-benar digunakan untuk membuat video.
+
+          TOPIK:
+          {topik}
+
+          NASKAH:
+          Judul:
+          {naskah_json.get("title", "")}
+
+          Setup 1:
+          {naskah_json.get("setup_1", "")}
+
+          Setup 2:
+          {naskah_json.get("setup_2", "")}
+
+          Punchline:
+          {naskah_json.get("punchline", "")}
+
+          Visual Context:
+          {naskah_json.get("visual_context", "")}
+
+          Aturan:
+
+          1. Title harus sama persis dengan title dari NASKAH.
+          2. Description harus menjelaskan isi video.
+          3. Description harus terasa natural dan relatable.
+          4. Pertahankan karakter Motivasi Sarkas:
+             - santai
+             - cerdas
+             - deadpan
+             - sedikit sarkas
+             - relatable
+          5. Jangan membuat fakta yang tidak ada di naskah.
+          6. Jangan membahas proses pembuatan video.
+          7. Jangan memasukkan source.
+          8. Jangan memasukkan URL.
+          9. Hashtag harus relevan.
+          10. Selalu sertakan:
+              #motivasiSarkas
+              #shorts
+          11. Jangan memasukkan hashtag yang tidak relevan.
+          12. Description jangan terlalu panjang.
+          13. Jangan menggunakan markdown.
+          14. Output HARUS JSON VALID.
+          15. Jangan memberikan penjelasan tambahan.
+
+          Format:
+
+          {{
+            "title": "...",
+            "description": "...",
+            "hashtags": [
+              "#motivasiSarkas",
+              "#shorts"
+            ]
+          }}
+          """
+
+          import google.generativeai as genai
+
+          genai.configure(
+              api_key=api_key.strip()
+          )
+
+          metadata_model = genai.GenerativeModel(
+              model_pilihan
+          )
+
+          metadata_response = metadata_model.generate_content(
+              genai_prompt
+          )
+
+          metadata_text = (
+              getattr(
+                  metadata_response,
+                  "text",
+                  ""
+              ) or ""
+          ).strip()
+
+          if not metadata_text:
+              raise RuntimeError(
+                  "Gemini tidak menghasilkan metadata YouTube."
+              )
+
+          # Bersihkan markdown fence jika Gemini tetap
+          # mengembalikannya.
+          metadata_text = (
+              metadata_text
+              .replace("```json", "")
+              .replace("```", "")
+              .strip()
+          )
+
+          try:
+              youtube_metadata = json.loads(
+                  metadata_text
+              )
+
+          except json.JSONDecodeError:
+              decoder = json.JSONDecoder()
+
+              start = metadata_text.find("{")
+
+              if start == -1:
+                  raise RuntimeError(
+                      "Response metadata YouTube bukan JSON valid."
+                  )
+
+              youtube_metadata, _ = (
+                  decoder.raw_decode(
+                      metadata_text[start:]
+                  )
+              )
+
+          # ==================================================
+          # 3. VALIDASI METADATA
+          # ==================================================
+
+          if not isinstance(
+              youtube_metadata,
+              dict
+          ):
+              raise RuntimeError(
+                  "Metadata YouTube bukan object JSON."
+              )
+
+          required_fields = [
+              "title",
+              "description",
+              "hashtags"
+          ]
+
+          for field in required_fields:
+
+              if field not in youtube_metadata:
+                  raise RuntimeError(
+                      f"Metadata YouTube tidak memiliki field: {field}"
+                  )
+
+          # Title YouTube HARUS sama dengan title video.
+          youtube_metadata["title"] = (
+              naskah_json["title"]
+          )
+
+          if not isinstance(
+              youtube_metadata["description"],
+              str
+          ):
+              raise RuntimeError(
+                  "Description YouTube harus berupa teks."
+              )
+
+          if not isinstance(
+              youtube_metadata["hashtags"],
+              list
+          ):
+              raise RuntimeError(
+                  "Hashtags YouTube harus berupa array."
+              )
+
+          # Bersihkan hashtag.
+          hashtags = []
+
+          for hashtag in youtube_metadata["hashtags"]:
+
+              if not isinstance(
+                  hashtag,
+                  str
+              ):
+                  continue
+
+              hashtag = hashtag.strip()
+
+              if not hashtag:
+                  continue
+
+              if not hashtag.startswith("#"):
+                  hashtag = "#" + hashtag
+
+              hashtags.append(
+                  hashtag
+              )
+
+          # Hilangkan duplicate.
+          hashtags = list(
+              dict.fromkeys(
+                  hashtags
+              )
+          )
+
+          # Pastikan hashtag utama selalu ada.
+          if "#motivasiSarkas" not in hashtags:
+              hashtags.insert(
+                  0,
+                  "#motivasiSarkas"
+              )
+
+          if "#shorts" not in hashtags:
+              hashtags.append(
+                  "#shorts"
+              )
+
+          youtube_metadata["hashtags"] = hashtags
+
+          print("")
+          print("====================================")
+          print("YOUTUBE METADATA")
+          print("====================================")
+
+          print(
+              f"Title       : "
+              f"{youtube_metadata['title']}"
+          )
+
+          print(
+              f"Description : "
+              f"{youtube_metadata['description']}"
+          )
+
+          print(
+              f"Hashtags    : "
+              f"{youtube_metadata['hashtags']}"
+          )
+
+          # ==================================================
+          # 4. SIMPAN METADATA
+          # ==================================================
+
+          os.makedirs(
+              "temp",
+              exist_ok=True
+          )
+
+          youtube_metadata_path = os.path.join(
+              "temp",
+              "youtube.json"
+          )
+
+          with open(
+              youtube_metadata_path,
+              "w",
+              encoding="utf-8"
+          ) as metadata_file:
+
+              json.dump(
+                  youtube_metadata,
+                  metadata_file,
+                  ensure_ascii=False,
+                  indent=2
+              )
+
+          print("")
+          print(
+              f"✅ youtube.json dibuat: "
+              f"{youtube_metadata_path}"
+          )
+
+          # ==================================================
+          # 5. SIMPAN RENDER RESULT
+          # ==================================================
 
           result_path = os.path.join(
               "temp",
@@ -233,6 +510,7 @@ jobs:
               "w",
               encoding="utf-8"
           ) as result_file:
+
               json.dump(
                   {
                       "naskah": naskah_json
@@ -242,8 +520,12 @@ jobs:
                   indent=2
               )
 
+          # ==================================================
+          # 6. RENDER VIDEO
+          # ==================================================
+
           print("")
-          print("2. Menyerahkan naskah ke Mesin Video...")
+          print("3. Menyerahkan naskah ke Mesin Video...")
 
           output = render_final_video(
               naskah_json
@@ -260,7 +542,9 @@ jobs:
                   f"File output tidak ditemukan: {output}"
               )
 
-          file_size = os.path.getsize(output)
+          file_size = os.path.getsize(
+              output
+          )
 
           print("")
           print("====================================")
@@ -284,6 +568,8 @@ jobs:
           print("")
           print("✅ RENDER BERHASIL.")
 
+          PY
+
       - name: Show generated files
         run: |
           echo "===================================="
@@ -306,6 +592,7 @@ jobs:
           path: |
             temp/final_*.mp4
             temp/render_result.json
+            temp/youtube.json
           if-no-files-found: error
           retention-days: 1
 
@@ -314,3 +601,4 @@ jobs:
           echo ""
           echo "===================================="
           echo "       JOB SELESAI"
+          echo "===================================="
