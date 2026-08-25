@@ -11,8 +11,15 @@ permissions:
   actions: read
 
 jobs:
+
+  # ==========================================================
+  # RENDER VIDEO
+  # ==========================================================
+
   render-video:
+
     if: github.event.action == 'render_video'
+
     runs-on: ubuntu-latest
 
     env:
@@ -25,13 +32,26 @@ jobs:
       MODEL_PILIHAN: ${{ github.event.client_payload.model_pilihan }}
 
     steps:
+
+      # ======================================================
+      # CHECKOUT
+      # ======================================================
+
       - name: Checkout repository
         uses: actions/checkout@v4
+
+      # ======================================================
+      # PYTHON
+      # ======================================================
 
       - name: Setup Python
         uses: actions/setup-python@v5
         with:
           python-version: "3.11"
+
+      # ======================================================
+      # SHOW RUNNER RESOURCES
+      # ======================================================
 
       - name: Show runner resources
         run: |
@@ -51,6 +71,10 @@ jobs:
           echo "PYTHON:"
           python --version
 
+      # ======================================================
+      # PROTECT API KEY
+      # ======================================================
+
       - name: Protect runtime API key
         shell: bash
         run: |
@@ -61,6 +85,10 @@ jobs:
 
           echo "::add-mask::$API_KEY"
           echo "✅ Gemini API Key diterima."
+
+      # ======================================================
+      # VALIDATE PARAMETERS
+      # ======================================================
 
       - name: Validate render parameters
         shell: bash
@@ -95,6 +123,10 @@ jobs:
           echo "Pexels API Key : [MASKED]"
           echo "Telegram Chat ID : ${CHAT_ID:-[NONE]}"
 
+      # ======================================================
+      # SYSTEM DEPENDENCIES
+      # ======================================================
+
       - name: Install system dependencies
         run: |
           sudo apt-get update
@@ -103,6 +135,10 @@ jobs:
             ffmpeg \
             imagemagick \
             fonts-dejavu
+
+      # ======================================================
+      # IMAGEMAGICK
+      # ======================================================
 
       - name: Configure ImageMagick for MoviePy
         run: |
@@ -134,11 +170,25 @@ jobs:
             grep -n 'domain="path"' "$POLICY_FILE" || true
           done
 
+      # ======================================================
+      # PYTHON DEPENDENCIES
+      # ======================================================
+
       - name: Install Python dependencies
         run: |
           python -m pip install --upgrade pip
 
-          pip install "numpy<2" moviepy==1.0.3 pillow requests python-dotenv google-generativeai
+          pip install \
+            "numpy<2" \
+            moviepy==1.0.3 \
+            pillow \
+            requests \
+            python-dotenv \
+            google-generativeai
+
+      # ======================================================
+      # VERIFY IMPORTS
+      # ======================================================
 
       - name: Verify project imports
         run: |
@@ -155,6 +205,10 @@ jobs:
           print("Dotenv  : OK")
           print("Gemini  : OK")
           PY
+
+      # ======================================================
+      # RENDER VIDEO
+      # ======================================================
 
       - name: Render video
         shell: bash
@@ -578,6 +632,10 @@ jobs:
 
           PY
 
+      # ======================================================
+      # SHOW GENERATED FILES
+      # ======================================================
+
       - name: Show generated files
         run: |
           echo "===================================="
@@ -593,10 +651,18 @@ jobs:
           echo "MEMORY:"
           free -h
 
+      # ======================================================
+      # SEND RESULT TO TELEGRAM
+      # ======================================================
+
       - name: Send result to Telegram
         if: ${{ github.event.client_payload.chat_id != '' }}
         run: |
           python send_to_telegram.py
+
+      # ======================================================
+      # UPLOAD RENDERED ARTIFACT
+      # ======================================================
 
       - name: Upload rendered video
         uses: actions/upload-artifact@v4
@@ -610,12 +676,59 @@ jobs:
           if-no-files-found: error
           retention-days: 1
 
+      # ======================================================
+      # CALLBACK TO CLOUDFLARE
+      # ======================================================
+
+      - name: Notify Cloudflare render complete
+        if: ${{ always() }}
+        shell: bash
+        env:
+          CLOUDFLARE_CALLBACK_URL: ${{ secrets.CLOUDFLARE_CALLBACK_URL }}
+          JOB_CALLBACK_SECRET: ${{ secrets.JOB_CALLBACK_SECRET }}
+          CHAT_ID: ${{ github.event.client_payload.chat_id }}
+          RUN_ID: ${{ github.run_id }}
+          JOB_STATUS: ${{ job.status }}
+        run: |
+          if [ -z "$CLOUDFLARE_CALLBACK_URL" ] || [ -z "$JOB_CALLBACK_SECRET" ] || [ -z "$CHAT_ID" ]; then
+            echo "Cloudflare callback dilewati karena konfigurasi belum lengkap."
+            exit 0
+          fi
+
+          if [ "$JOB_STATUS" = "success" ]; then
+            STATUS="success"
+          else
+            STATUS="failed"
+          fi
+
+          curl --fail-with-body --silent --show-error \
+            -X POST \
+            "${CLOUDFLARE_CALLBACK_URL}/internal/job-complete" \
+            -H "Content-Type: application/json" \
+            -H "X-Callback-Secret: ${JOB_CALLBACK_SECRET}" \
+            --data "{
+              \"chat_id\": \"${CHAT_ID}\",
+              \"job_type\": \"render\",
+              \"status\": \"${STATUS}\",
+              \"run_id\": \"${RUN_ID}\"
+            }"
+
+          echo "✅ Cloudflare render callback dikirim."
+
+      # ======================================================
+      # RENDER COMPLETED
+      # ======================================================
+
       - name: Render completed
         run: |
           echo ""
           echo "===================================="
           echo "       JOB SELESAI"
           echo "===================================="
+
+      # ======================================================
+      # RENDER FAILURE
+      # ======================================================
 
       - name: Notify render failure to Telegram
         if: ${{ always() && github.event.client_payload.chat_id != '' && job.status != 'success' }}
@@ -632,31 +745,56 @@ jobs:
           fi
 
           if [ "$JOB_STATUS" = "cancelled" ]; then
-            MESSAGE=$(printf '%s\n\n%s\n%s'               "⚠️ PROSES RENDER DIBATALKAN"               "GitHub Actions menghentikan proses render."               "Detail: $GITHUB_RUN_URL")
+            MESSAGE=$(printf '%s\n\n%s\n%s' \
+              "⚠️ PROSES RENDER DIBATALKAN" \
+              "GitHub Actions menghentikan proses render." \
+              "Detail: $GITHUB_RUN_URL")
           else
-            MESSAGE=$(printf '%s\n\n%s\n%s'               "❌ PROSES RENDER GAGAL"               "GitHub Actions mengalami error saat proses render atau pengiriman hasil."               "Detail: $GITHUB_RUN_URL")
+            MESSAGE=$(printf '%s\n\n%s\n%s' \
+              "❌ PROSES RENDER GAGAL" \
+              "GitHub Actions mengalami error saat proses render atau pengiriman hasil." \
+              "Detail: $GITHUB_RUN_URL")
           fi
 
-          curl --fail-with-body --silent --show-error             -X POST             "https://api.telegram.org/bot${TELEGRAM_BOT_TOKEN}/sendMessage"             --data-urlencode "chat_id=${CHAT_ID}"             --data-urlencode "text=${MESSAGE}"
+          curl --fail-with-body --silent --show-error \
+            -X POST \
+            "https://api.telegram.org/bot${TELEGRAM_BOT_TOKEN}/sendMessage" \
+            --data-urlencode "chat_id=${CHAT_ID}" \
+            --data-urlencode "text=${MESSAGE}"
 
-          echo "✅ Notifikasi error render dikirim ke Telegram."
+          echo "✅ Notifikasi error render dikirim."
 
+
+  # ==========================================================
+  # UPLOAD YOUTUBE
+  # ==========================================================
 
   upload-video:
+
     if: github.event.action == 'upload_youtube'
+
     runs-on: ubuntu-latest
 
     env:
       TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
       CHAT_ID: ${{ github.event.client_payload.chat_id }}
       RENDER_RUN_ID: ${{ github.event.client_payload.run_id }}
+
       YOUTUBE_CREDENTIALS_JSON: ${{ secrets.YOUTUBE_CREDENTIALS_JSON }}
       YOUTUBE_TOKEN_JSON: ${{ secrets.YOUTUBE_TOKEN_JSON }}
 
     steps:
 
+      # ======================================================
+      # CHECKOUT
+      # ======================================================
+
       - name: Checkout repository
         uses: actions/checkout@v4
+
+      # ======================================================
+      # VALIDATE UPLOAD PARAMETERS
+      # ======================================================
 
       - name: Validate upload parameters
         shell: bash
@@ -692,19 +830,41 @@ jobs:
           echo "YouTube credentials : [MASKED]"
           echo "YouTube token : [MASKED]"
 
+      # ======================================================
+      # PYTHON
+      # ======================================================
+
       - name: Setup Python
         uses: actions/setup-python@v5
         with:
           python-version: "3.11"
 
+      # ======================================================
+      # YOUTUBE DEPENDENCIES
+      # ======================================================
+
       - name: Install YouTube dependencies
         run: |
           python -m pip install --upgrade pip
-          pip install requests google-api-python-client google-auth google-auth-httplib2 google-auth-oauthlib
+
+          pip install \
+            requests \
+            google-api-python-client \
+            google-auth \
+            google-auth-httplib2 \
+            google-auth-oauthlib
+
+      # ======================================================
+      # VERIFY YOUTUBE IMPORTS
+      # ======================================================
 
       - name: Verify YouTube imports
         run: |
           python -c "import google.auth; import google_auth_oauthlib; import googleapiclient; print('google-auth: OK'); print('google-auth-oauthlib: OK'); print('google-api-python-client: OK')"
+
+      # ======================================================
+      # DOWNLOAD RENDER ARTIFACT
+      # ======================================================
 
       - name: Download render artifact
         uses: actions/download-artifact@v4
@@ -714,20 +874,37 @@ jobs:
           github-token: ${{ github.token }}
           path: upload_input
 
+      # ======================================================
+      # PREPARE YOUTUBE CREDENTIALS
+      # ======================================================
+
       - name: Prepare YouTube credentials
         shell: bash
         run: |
           mkdir -p secrets
-          printf '%s' "$YOUTUBE_CREDENTIALS_JSON" > secrets/credentials.json
-          printf '%s' "$YOUTUBE_TOKEN_JSON" > secrets/token.json
 
-          python -c "import json; json.load(open('secrets/credentials.json', encoding='utf-8')); json.load(open('secrets/token.json', encoding='utf-8')); print('✅ YouTube credential JSON valid.')"
+          printf '%s' \
+            "$YOUTUBE_CREDENTIALS_JSON" \
+            > secrets/credentials.json
+
+          printf '%s' \
+            "$YOUTUBE_TOKEN_JSON" \
+            > secrets/token.json
+
+          python -c \
+            "import json; json.load(open('secrets/credentials.json', encoding='utf-8')); json.load(open('secrets/token.json', encoding='utf-8')); print('✅ YouTube credential JSON valid.')"
+
+      # ======================================================
+      # PREPARE UPLOAD INPUT
+      # ======================================================
 
       - name: Prepare upload input
         shell: bash
         run: |
           VIDEO_PATH=$(find upload_input -type f -name '*.mp4' | head -n 1)
+
           YOUTUBE_JSON=$(find upload_input -type f -name 'youtube.json' | head -n 1)
+
           THUMBNAIL_PATH=$(find upload_input -type f -name 'thumbnail.jpg' | head -n 1)
 
           if [ -z "$VIDEO_PATH" ]; then
@@ -741,22 +918,30 @@ jobs:
           fi
 
           if [ -z "$THUMBNAIL_PATH" ]; then
-            echo "⚠️ thumbnail.jpg tidak ditemukan di artifact."
-            echo "Upload video tetap dilanjutkan tanpa custom thumbnail."
+            echo "❌ thumbnail.jpg tidak ditemukan di artifact."
+            exit 1
           fi
 
           echo "VIDEO_PATH=$VIDEO_PATH" >> "$GITHUB_ENV"
           echo "YOUTUBE_JSON=$YOUTUBE_JSON" >> "$GITHUB_ENV"
           echo "THUMBNAIL_PATH=$THUMBNAIL_PATH" >> "$GITHUB_ENV"
 
-          echo "Video : $VIDEO_PATH"
-          echo "Metadata : $YOUTUBE_JSON"
-          echo "Thumbnail : ${THUMBNAIL_PATH:-[NONE]}"
+          echo "Video     : $VIDEO_PATH"
+          echo "Metadata  : $YOUTUBE_JSON"
+          echo "Thumbnail : $THUMBNAIL_PATH"
+
+      # ======================================================
+      # UPLOAD YOUTUBE
+      # ======================================================
 
       - name: Upload to YouTube
         id: upload_youtube
         run: |
           python youtube_uploader.py
+
+      # ======================================================
+      # SEND UPLOAD RESULT TO TELEGRAM
+      # ======================================================
 
       - name: Send upload result to Telegram
         if: always()
@@ -767,10 +952,54 @@ jobs:
         run: |
           python send_upload_result_to_telegram.py
 
+      # ======================================================
+      # CALLBACK TO CLOUDFLARE
+      # ======================================================
+
+      - name: Notify Cloudflare upload complete
+        if: ${{ always() }}
+        shell: bash
+        env:
+          CLOUDFLARE_CALLBACK_URL: ${{ secrets.CLOUDFLARE_CALLBACK_URL }}
+          JOB_CALLBACK_SECRET: ${{ secrets.JOB_CALLBACK_SECRET }}
+          CHAT_ID: ${{ github.event.client_payload.chat_id }}
+          RUN_ID: ${{ github.event.client_payload.run_id }}
+          UPLOAD_OUTCOME: ${{ steps.upload_youtube.outcome }}
+        run: |
+          if [ -z "$CLOUDFLARE_CALLBACK_URL" ] || [ -z "$JOB_CALLBACK_SECRET" ] || [ -z "$CHAT_ID" ]; then
+            echo "Cloudflare callback dilewati karena konfigurasi belum lengkap."
+            exit 0
+          fi
+
+          if [ "$UPLOAD_OUTCOME" = "success" ]; then
+            STATUS="success"
+          else
+            STATUS="failed"
+          fi
+
+          curl --fail-with-body --silent --show-error \
+            -X POST \
+            "${CLOUDFLARE_CALLBACK_URL}/internal/job-complete" \
+            -H "Content-Type: application/json" \
+            -H "X-Callback-Secret: ${JOB_CALLBACK_SECRET}" \
+            --data "{
+              \"chat_id\": \"${CHAT_ID}\",
+              \"job_type\": \"upload\",
+              \"status\": \"${STATUS}\",
+              \"run_id\": \"${RUN_ID}\"
+            }"
+
+          echo "✅ Cloudflare upload callback dikirim."
+
+      # ======================================================
+      # CLEANUP YOUTUBE SECRETS
+      # ======================================================
+
       - name: Cleanup YouTube secrets
         if: always()
         shell: bash
         run: |
           rm -f secrets/credentials.json
           rm -f secrets/token.json
+
           echo "✅ Temporary YouTube credential files removed."
