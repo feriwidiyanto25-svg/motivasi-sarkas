@@ -1479,6 +1479,70 @@ def render_final_video(
                     )
                     .set_duration(duration)
                 )
+
+                # --------------------------------------
+                # SAVE OPENING TITLE AS YOUTUBE THUMBNAIL
+                # --------------------------------------
+                # This is intentionally derived from the exact
+                # same composite used as the first video segment,
+                # so the thumbnail matches the opening frame.
+                if segment_name == "title":
+
+                    thumbnail_path = os.path.join(
+                        "temp",
+                        "thumbnail.jpg"
+                    )
+
+                    try:
+
+                        segment.save_frame(
+                            thumbnail_path,
+                            t=0
+                        )
+
+                        # Re-save as optimized JPEG to keep the
+                        # thumbnail lightweight and compatible.
+                        with Image.open(
+                            thumbnail_path
+                        ) as thumbnail_image:
+
+                            thumbnail_image = thumbnail_image.convert(
+                                "RGB"
+                            )
+
+                            thumbnail_image.save(
+                                thumbnail_path,
+                                format="JPEG",
+                                quality=90,
+                                optimize=True
+                            )
+
+                        thumbnail_size = os.path.getsize(
+                            thumbnail_path
+                        )
+
+                        print(
+                            f"Thumbnail tersimpan: "
+                            f"{thumbnail_path} "
+                            f"({thumbnail_size / 1024:.1f} KB)"
+                        )
+
+                    except Exception as thumbnail_error:
+
+                        # Thumbnail is an additional output. A failure
+                        # here must never stop the existing video render.
+                        print(
+                            "⚠️ Gagal membuat thumbnail: "
+                            f"{type(thumbnail_error).__name__}: "
+                            f"{thumbnail_error}"
+                        )
+
+                        try:
+                            if os.path.exists(thumbnail_path):
+                                os.remove(thumbnail_path)
+                        except Exception:
+                            pass
+
             else:
                 segment = segment_bg
 
