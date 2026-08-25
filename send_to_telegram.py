@@ -6,16 +6,41 @@ import requests
 
 
 def main() -> None:
-    bot_token = os.environ.get("TELEGRAM_BOT_TOKEN", "").strip()
-    chat_id = os.environ.get("CHAT_ID", "").strip()
+    bot_token = os.environ.get(
+        "TELEGRAM_BOT_TOKEN",
+        ""
+    ).strip()
+
+    chat_id = os.environ.get(
+        "CHAT_ID",
+        ""
+    ).strip()
+
+    run_id = os.environ.get(
+        "GITHUB_RUN_ID",
+        ""
+    ).strip()
 
     if not bot_token:
-        raise RuntimeError("TELEGRAM_BOT_TOKEN belum tersedia.")
+        raise RuntimeError(
+            "TELEGRAM_BOT_TOKEN belum tersedia."
+        )
 
     if not chat_id:
-        raise RuntimeError("CHAT_ID belum tersedia.")
+        raise RuntimeError(
+            "CHAT_ID belum tersedia."
+        )
+
+    if not run_id:
+        raise RuntimeError(
+            "GITHUB_RUN_ID belum tersedia."
+        )
 
     temp_dir = Path("temp")
+
+    # ==================================================
+    # CARI VIDEO
+    # ==================================================
 
     videos = sorted(
         temp_dir.glob("*.mp4"),
@@ -24,22 +49,54 @@ def main() -> None:
     )
 
     if not videos:
-        raise RuntimeError("File MP4 hasil render tidak ditemukan.")
+        raise RuntimeError(
+            "File MP4 hasil render tidak ditemukan."
+        )
 
     video_path = videos[0]
-    youtube_path = temp_dir / "youtube.json"
+
+    # ==================================================
+    # BACA YOUTUBE.JSON
+    # ==================================================
+
+    youtube_path = (
+        temp_dir / "youtube.json"
+    )
 
     if not youtube_path.exists():
-        raise RuntimeError("youtube.json tidak ditemukan.")
+        raise RuntimeError(
+            "youtube.json tidak ditemukan."
+        )
 
-    with youtube_path.open("r", encoding="utf-8") as file:
+    with youtube_path.open(
+        "r",
+        encoding="utf-8"
+    ) as file:
         metadata = json.load(file)
 
-    title = str(metadata.get("title", "")).strip()
-    description = str(metadata.get("description", "")).strip()
-    hashtags = metadata.get("hashtags", [])
+    title = str(
+        metadata.get(
+            "title",
+            ""
+        )
+    ).strip()
 
-    if not isinstance(hashtags, list):
+    description = str(
+        metadata.get(
+            "description",
+            ""
+        )
+    ).strip()
+
+    hashtags = metadata.get(
+        "hashtags",
+        []
+    )
+
+    if not isinstance(
+        hashtags,
+        list
+    ):
         hashtags = []
 
     hashtags_text = " ".join(
@@ -48,41 +105,42 @@ def main() -> None:
         if str(item).strip()
     )
 
-    # --------------------------------------------------
-    # Kirim video
-    # --------------------------------------------------
+    # ==================================================
+    # KIRIM VIDEO
+    # ==================================================
+
     caption = (
         "🎬 VIDEO SELESAI\n\n"
         f"Title:\n{title}"
     )
 
-    telegram_url = (
-        f"https://api.telegram.org/bot{bot_token}/sendVideo"
+    response = requests.post(
+        f"https://api.telegram.org/"
+        f"bot{bot_token}/sendVideo",
+        data={
+            "chat_id": chat_id,
+            "caption": caption[:1024],
+        },
+        files={
+            "video": (
+                video_path.name,
+                video_path.open("rb"),
+                "video/mp4",
+            )
+        },
+        timeout=600,
     )
 
-    with video_path.open("rb") as video_file:
-        response = requests.post(
-            telegram_url,
-            data={
-                "chat_id": chat_id,
-                "caption": caption[:1024],
-            },
-            files={
-                "video": (
-                    video_path.name,
-                    video_file,
-                    "video/mp4",
-                )
-            },
-            timeout=600,
-        )
-
     response.raise_for_status()
-    print("✅ Video berhasil dikirim ke Telegram.")
 
-    # --------------------------------------------------
-    # Kirim metadata
-    # --------------------------------------------------
+    print(
+        "✅ Video berhasil dikirim ke Telegram."
+    )
+
+    # ==================================================
+    # METADATA + TOMBOL UPLOAD
+    # ==================================================
+
     metadata_text = (
         "📝 YOUTUBE METADATA\n\n"
         f"Title:\n{title}\n\n"
@@ -90,25 +148,23 @@ def main() -> None:
         f"Hashtags:\n{hashtags_text}"
     )
 
-    metadata_url = (
-        f"https://api.telegram.org/bot{bot_token}/sendMessage"
-    )
-
-    # Tombol ini hanya UI sementara. Callback upload
-    # akan kita sambungkan setelah hasil render stabil.
+    # run_id disimpan di callback_data.
+    # Contoh:
+    # upload:32814639663
     reply_markup = {
         "inline_keyboard": [
             [
                 {
                     "text": "📺 Upload YouTube",
-                    "callback_data": "upload_latest",
+                    "callback_data": f"upload:{run_id}",
                 }
             ]
         ]
     }
 
     response = requests.post(
-        metadata_url,
+        f"https://api.telegram.org/"
+        f"bot{bot_token}/sendMessage",
         json={
             "chat_id": chat_id,
             "text": metadata_text,
@@ -118,7 +174,14 @@ def main() -> None:
     )
 
     response.raise_for_status()
-    print("✅ Metadata berhasil dikirim ke Telegram.")
+
+    print(
+        "✅ Metadata berhasil dikirim ke Telegram."
+    )
+
+    print(
+        f"✅ Upload button menggunakan run_id: {run_id}"
+    )
 
 
 if __name__ == "__main__":
