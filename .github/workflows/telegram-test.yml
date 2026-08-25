@@ -1,0 +1,18 @@
+name: Telegram Gateway Test
+
+on:
+  repository_dispatch:
+    types:
+      - telegram_test
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Test
+        run: |
+          echo "===================================="
+          echo "Telegram -> Cloudflare -> GitHub OK"
+          echo "===================================="
+          echo "Repository dispatch berhasil diterima."
