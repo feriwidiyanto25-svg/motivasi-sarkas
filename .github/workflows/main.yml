@@ -718,7 +718,7 @@ jobs:
 
       - name: Upload to YouTube
         run: |
-          python upload_to_youtube.py
+          python youtube_uploader.py
 
       - name: Cleanup YouTube secrets
         if: always()
