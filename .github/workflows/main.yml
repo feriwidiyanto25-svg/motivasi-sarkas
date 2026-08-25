@@ -681,12 +681,7 @@ jobs:
       - name: Install YouTube dependencies
         run: |
           python -m pip install --upgrade pip
-          pip install \\
-            requests \\
-            google-api-python-client \\
-            google-auth \\
-            google-auth-httplib2 \\
-            google-auth-oauthlib
+          pip install "numpy<2" moviepy==1.0.3 pillow requests python-dotenv google-generativeai
 
       - name: Download render artifact
         uses: actions/download-artifact@v4
