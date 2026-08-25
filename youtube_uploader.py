@@ -144,6 +144,73 @@ class YouTubeUploader:
 
         return response
 
+    def set_thumbnail(
+        self,
+        video_id,
+        thumbnail_path,
+    ):
+        """
+        Set custom thumbnail untuk video YouTube.
+
+        Fungsi ini sengaja berdiri sendiri agar proses upload video
+        yang sudah berjalan tetap sama. Bila thumbnail gagal, caller
+        dapat menangani error tanpa membatalkan video yang sudah
+        berhasil di-upload.
+        """
+
+        thumbnail_file = Path(thumbnail_path)
+
+        if not thumbnail_file.exists():
+            raise RuntimeError(
+                f"Thumbnail tidak ditemukan: {thumbnail_file}"
+            )
+
+        if thumbnail_file.stat().st_size <= 0:
+            raise RuntimeError(
+                f"Thumbnail kosong: {thumbnail_file}"
+            )
+
+        suffix = thumbnail_file.suffix.lower()
+
+        if suffix in (".jpg", ".jpeg"):
+            mimetype = "image/jpeg"
+        elif suffix == ".png":
+            mimetype = "image/png"
+        else:
+            raise RuntimeError(
+                "Format thumbnail tidak didukung. "
+                "Gunakan JPG/JPEG atau PNG."
+            )
+
+        youtube = self.get_service()
+
+        media = MediaFileUpload(
+            str(thumbnail_file),
+            mimetype=mimetype,
+            resumable=False,
+        )
+
+        print(
+            "Mengatur custom thumbnail..."
+        )
+
+        request = (
+            youtube
+            .thumbnails()
+            .set(
+                videoId=video_id,
+                media_body=media,
+            )
+        )
+
+        response = request.execute()
+
+        print(
+            "✅ Custom thumbnail berhasil diset."
+        )
+
+        return response
+
 
 # ==========================================================
 # GITHUB ACTIONS DIRECT EXECUTION
@@ -158,6 +225,13 @@ if __name__ == "__main__":
 
     youtube_json = os.environ.get(
         "YOUTUBE_JSON",
+        ""
+    ).strip()
+
+    # Optional. Bila tidak ada, proses upload video tetap berjalan
+    # seperti sebelumnya tanpa custom thumbnail.
+    thumbnail_path = os.environ.get(
+        "THUMBNAIL_PATH",
         ""
     ).strip()
 
@@ -266,12 +340,25 @@ if __name__ == "__main__":
         f"Title : {title}"
     )
 
+    if thumbnail_path:
+        print(
+            f"Thumbnail : {thumbnail_path}"
+        )
+    else:
+        print(
+            "Thumbnail : [NONE]"
+        )
+
     print("")
     print(
         "Mulai upload..."
     )
 
     uploader = YouTubeUploader()
+
+    # ======================================================
+    # 1. UPLOAD VIDEO
+    # ======================================================
 
     result = uploader.upload_video(
         video_path=str(
@@ -302,6 +389,58 @@ if __name__ == "__main__":
             "video ID tidak ditemukan."
         )
 
+    # ======================================================
+    # 2. SET CUSTOM THUMBNAIL (OPTIONAL)
+    # ======================================================
+    # Jangan biarkan kegagalan thumbnail membatalkan upload
+    # video yang sudah berhasil. Ini menjaga fungsi lama tetap aman.
+
+    thumbnail_status = "not_requested"
+
+    if thumbnail_path:
+
+        thumbnail_file = Path(
+            thumbnail_path
+        )
+
+        if not thumbnail_file.exists():
+
+            print(
+                "⚠️ Thumbnail tidak ditemukan. "
+                "Video tetap dianggap berhasil di-upload."
+            )
+
+            thumbnail_status = "not_found"
+
+        else:
+
+            try:
+
+                uploader.set_thumbnail(
+                    video_id=video_id,
+                    thumbnail_path=str(
+                        thumbnail_file
+                    ),
+                )
+
+                thumbnail_status = "success"
+
+            except Exception as thumbnail_error:
+
+                thumbnail_status = "failed"
+
+                print("")
+                print(
+                    "⚠️ CUSTOM THUMBNAIL GAGAL"
+                )
+                print(
+                    f"{type(thumbnail_error).__name__}: "
+                    f"{thumbnail_error}"
+                )
+                print(
+                    "Video YouTube tetap berhasil di-upload."
+                )
+
     youtube_url = (
         "https://www.youtube.com/watch?v="
         + video_id
@@ -322,6 +461,7 @@ if __name__ == "__main__":
                 "video_id": video_id,
                 "youtube_url": youtube_url,
                 "title": title,
+                "thumbnail_status": thumbnail_status,
             },
             file,
             ensure_ascii=False,
@@ -336,4 +476,8 @@ if __name__ == "__main__":
     print(
         f"YouTube URL: "
         f"{youtube_url}"
+    )
+
+    print(
+        f"Thumbnail status: {thumbnail_status}"
     )
