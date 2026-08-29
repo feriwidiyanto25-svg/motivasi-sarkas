@@ -79,23 +79,23 @@ TARGET_ASPECT_RATIO = (
 # ==========================================
 # DYNAMIC TIMING
 # ==========================================
-WORDS_PER_SECOND = 1.7
+WORDS_PER_SECOND = 2.0
 
 # Slide pembuka / title
 TITLE_DURATION = 1.5
 
 MIN_SETUP_DURATION = 1.5
-MAX_SETUP_DURATION = 1.0
+MAX_SETUP_DURATION = 2.0
 
-MIN_PUNCHLINE_DURATION = 1.0
-MAX_PUNCHLINE_DURATION = 1.5
+MIN_PUNCHLINE_DURATION = 1.5
+MAX_PUNCHLINE_DURATION = 2.0
 
 PUNCHLINE_PAUSE = 0.5
 
 # Video tidak lagi dipaksa sekitar 10 detik.
 # Durasi mengikuti kebutuhan joke, dengan batas yang lebih longgar.
 MIN_TOTAL_DURATION = 7.0
-MAX_TOTAL_DURATION = 7.0
+MAX_TOTAL_DURATION = 10.0
 
 # ==========================================
 # TEXT
