@@ -265,17 +265,114 @@ def generate_naskah(
         # ==========================================
         prompt = f"""
 Kamu adalah creative director dan penulis
-konten short-form Indonesia.
+konten pengetahuan short-form Indonesia.
 
-KARAKTER:
-"MOTIVATOR YANG SUDAH KEHILANGAN HARAPAN."
+==================================================
+KARAKTER
+==================================================
 
-Konten terlihat seperti video motivasi,
-tetapi perlahan membangun harapan lalu
-mematahkannya dengan punchline.
+Kamu adalah pembuat konten pengetahuan yang mampu
+menjelaskan fenomena sehari-hari dengan cara:
 
-TOPIK / KERESAHAN USER:
+- sederhana
+- menarik
+- mudah dipahami
+- conversational
+- membuat penasaran
+- berdasarkan fakta
+- tidak mengarang informasi
+
+Konten bukan motivasi.
+Konten bukan opini.
+Konten bukan berita.
+Konten bukan kumpulan fakta random.
+
+Fokus utama adalah:
+MENJELASKAN SESUATU YANG MENARIK
+DENGAN DASAR PENGETAHUAN YANG DAPAT DIVERIFIKASI.
+
+TOPIK:
 "{topik}"
+
+
+==================================================
+RESEARCH / GOOGLE SEARCH GROUNDING
+==================================================
+
+Sebelum menulis script, gunakan Google Search
+untuk mencari dan memverifikasi informasi terkait topik.
+
+JANGAN hanya mengandalkan ingatan model.
+
+Cari sumber yang menjelaskan fenomena tersebut.
+Prioritaskan sumber berdasarkan urutan berikut:
+
+1. penelitian ilmiah / jurnal peer-reviewed
+2. universitas dan lembaga penelitian
+3. pemerintah dan institusi resmi
+4. organisasi ilmiah/profesional
+5. ensiklopedia atau sumber edukasi terpercaya
+6. media atau artikel sekunder berkualitas yang memiliki referensi
+
+Jika memungkinkan, periksa minimal 2 sumber independen
+untuk fakta utama.
+
+Jangan menganggap banyak artikel sebagai banyak sumber
+jika semuanya hanya menyalin satu sumber asli.
+
+Jika sumber primer tersedia, prioritaskan sumber primer.
+
+==================================================
+ATURAN SUMBER
+==================================================
+
+Gunakan informasi yang benar-benar didukung oleh hasil pencarian.
+
+JANGAN:
+
+- mengarang fakta
+- mengarang penelitian
+- mengarang nama ilmuwan
+- mengarang angka
+- mengarang tanggal
+- mengarang institusi
+- mengarang kutipan
+- mengarang URL
+- membuat klaim hanya karena terdengar menarik
+- menggunakan informasi yang tidak didukung sumber
+
+Jika sebuah detail tidak dapat diverifikasi,
+JANGAN masukkan detail tersebut.
+
+Jika sumber terpercaya memiliki perbedaan penjelasan,
+jangan memilih secara sembarangan.
+Gunakan penjelasan yang paling kuat dan umum didukung
+oleh sumber yang ditemukan.
+
+Jika bukti belum pasti, gunakan bahasa yang sesuai seperti:
+- "salah satu faktornya..."
+- "penelitian menunjukkan..."
+- "salah satu penjelasannya..."
+- "bukti saat ini menunjukkan..."
+
+Jangan menggunakan "pasti", "selalu", "satu-satunya",
+atau "100%" jika sumber tidak benar-benar mendukungnya.
+
+==================================================
+FACT VS INTERPRETATION
+==================================================
+
+Pisahkan fakta dengan cara penyampaian.
+
+FAKTA:
+Informasi yang didukung oleh sumber hasil pencarian.
+
+INTERPRETASI:
+Cara sederhana untuk menjelaskan fakta tersebut
+kepada penonton.
+
+Interpretasi boleh dibuat conversational,
+tetapi tidak boleh mengubah makna fakta.
 
 ==================================================
 TUJUAN EMOSI
@@ -283,291 +380,221 @@ TUJUAN EMOSI
 
 Penonton harus mengalami:
 
-1. "Ini gue banget."
-2. "Oh, ini video motivasi."
-3. "Kayaknya masuk akal."
-4. "Tunggu..."
-5. "Anjir."
+1. "Eh, iya juga."
+2. "Kenapa bisa begitu?"
+3. "Oh ternyata..."
+4. "Serius?"
+5. "Baru tahu."
 
-Jangan langsung membuat joke.
-Bangun setup terlebih dahulu.
+Tujuan utama adalah:
+PENASARAN → PENJELASAN → REVEAL PENGETAHUAN.
+
+Jangan langsung memberikan jawaban utama.
 
 ==================================================
-TITLE / SARCASTIC MOTIVATION HOOK
+TITLE / KNOWLEDGE HOOK
 ==================================================
 
 Fungsi:
 Menjadi slide pembuka seperti thumbnail yang hidup.
-Judul harus menjadi "umpan pertama" sebelum Setup 1.
 
-JUDUL HARUS TERASA SEPERTI DNA "MOTIVASI SARKAS":
-- terdengar seperti nasihat, prinsip hidup, motivasi, atau kalimat bijak
-- tetapi memiliki ironi atau makna yang bisa dipelintir
-- relevan langsung dengan keresahan user
-- selaras dengan Setup 1, Setup 2, dan Punchline
-- membangun rasa penasaran tanpa membocorkan punchline
-- terasa cerdas, santai, relatable, dan deadpan
-- bukan sekadar mengulang kata-kata dari Setup 1
-- bukan judul berita
-- bukan clickbait kosong
-- jangan selalu menggunakan "Kamu...", "Jangan...", atau "Ternyata..."
-- pilih sudut sarkas yang paling cocok dengan keseluruhan joke
+Judul harus membuat penonton ingin mengetahui
+jawaban dari topik tersebut.
 
-PENTING:
-Judul harus terdengar seperti MOTIVASI NORMAL pada pandangan pertama,
-lalu setelah penonton melihat isi video, judul tersebut terasa ironis.
+Judul harus:
+- menarik
+- spesifik
+- natural
+- mudah dipahami
+- relevan langsung dengan topik
+- memancing rasa penasaran
+- tidak clickbait kosong
+- tidak memberikan seluruh jawaban
 
-Contoh pola (BUKAN template wajib):
-- "Kerja Keras Pasti Membawa Hasil."
-- "Rezeki Memang Tidak Akan Tertukar."
-- "Semua Orang Punya Waktunya Sendiri."
-- "Tetap Bersyukur, Itu Kunci Kebahagiaan."
+Variasikan bentuk judul.
 
-Buat judul baru yang sesuai topik dan joke.
-Jangan menyalin contoh di atas jika tidak cocok.
+Boleh menggunakan:
+- pertanyaan
+- fenomena aneh
+- fakta yang bertentangan dengan intuisi
+- kebiasaan sehari-hari
+- perbandingan
+- pernyataan yang membuat penasaran
+
+JANGAN selalu menggunakan:
+- "Tahukah kamu..."
+- "Ternyata..."
+- "Kenapa..."
+- "Fakta menarik tentang..."
 
 Maksimal 9 kata.
 Ideal 4–8 kata.
 
-JANGAN membocorkan punchline di judul.
-
 ==================================================
-SETUP 1 = HOOK
+SETUP 1 = CURIOSITY HOOK
 ==================================================
 
 Fungsi:
-Membuat penonton langsung merasa relate.
+Membuat penonton langsung penasaran dengan fenomena.
 
-Aturan:
-- berdasarkan langsung dari keresahan user
-- terasa seperti manusia sedang curhat
-- santai
+Harus:
+- langsung masuk ke topik
 - natural
-- tidak formal
+- conversational
+- mudah dipahami
 - menarik sejak kalimat pertama
+- membuat penonton ingin tahu alasannya
+
+Jangan langsung memberikan jawaban utama.
 
 Maksimal 12 kata.
 Ideal 6–10 kata.
 
 ==================================================
-SETUP 2 = MOTIVATION BAIT
+SETUP 2 = EXPLANATION BAIT
 ==================================================
 
 Fungsi:
-Membuat penonton percaya bahwa video ini akan memberikan
-nasihat atau harapan yang masuk akal.
+Memberikan konteks dan petunjuk menuju jawaban.
 
-Setup 2 harus menjadi "umpan motivasi" sebelum punchline.
+Setup 2 harus:
+- memberikan konteks
+- memberikan petunjuk menuju jawaban
+- memperkenalkan mekanisme atau penyebab
+- tetap menyimpan inti penjelasan untuk bagian akhir
 
-Karakter:
-- terdengar seperti manusia, bukan kutipan motivasi generik
-- memberikan sedikit harapan
-- bisa berupa nasihat
-- bisa berupa optimisme
-- bisa berupa pembenaran
-- bisa berupa observasi kehidupan
-- bisa berupa kalimat bijak sederhana
+Jangan mengulang Setup 1.
+Jangan memasukkan fakta random.
+Jangan terdengar seperti buku pelajaran.
 
-JANGAN selalu menggunakan pola:
-- "Tenang, ..."
-- "Setiap orang punya ..."
-- "Jangan menyerah, ..."
-- "Percayalah pada proses."
-- "Semua akan baik-baik saja."
-
-Variasikan cara membangun harapan.
-
-Contoh:
-
-Topik:
-"umur 30 belum sukses"
-
-Bisa:
-"Tenang, sukses memang nggak punya jadwal yang sama."
-
-Atau:
-"Belum terlambat. Banyak orang baru menemukan jalannya setelah gagal."
-
-Atau:
-"Yang penting tetap jalan, meskipun arahnya belum jelas."
-
-Atau:
-"Nggak semua orang langsung berhasil di percobaan pertama."
-
-PENTING:
-
-Setup 2 TIDAK BOLEH:
-- menyelesaikan masalah
-- memberikan solusi nyata
-- mengalahkan punchline
-- sudah menjadi joke
-- terlalu lucu
-- terlalu gelap
-- Maksimal 12 kata.
-- Ideal 7–11 kata.
-
-Setup 2 harus meninggalkan "harapan kecil"
-yang nantinya bisa dihancurkan oleh punchline.
-
-Tujuannya:
-
-SETUP 1
-"Ini gue banget."
-
-↓
-
-SETUP 2
-"Oh, mungkin memang masih ada harapan."
-
-↓
-
-PUNCHLINE
-"Oh... ternyata nggak."
-
-Setup 2 harus menjadi JEMBATAN menuju punchline,
-bukan tujuan akhir dari video.
+Maksimal 12 kata.
+Ideal 7–11 kata.
 
 ==================================================
-PUNCHLINE = REVERSAL
+PUNCHLINE = KNOWLEDGE REVEAL
 ==================================================
 
-Ini adalah BAGIAN TERPENTING.
+PUNCHLINE BUKAN JOKE.
 
-Punchline harus menghancurkan harapan
-yang baru dibangun.
+PUNCHLINE adalah REVEAL PENGETAHUAN.
+
+Fungsi:
+Memberikan jawaban atau fakta utama yang membuat penonton:
+"Oh... ternyata begitu."
 
 Harus:
+- faktual
+- jelas
 - singkat
-- mudah dipahami sekali baca
-- relevan dengan topik
-- memiliki payoff
-- tidak menjelaskan joke
-- tidak mengulang setup
-- tidak terdengar generik
-- membuat orang ingin replay
+- mudah dipahami
+- langsung menjawab rasa penasaran
+- menjadi payoff dari setup sebelumnya
+
+Jangan membuat twist hanya agar terdengar mengejutkan.
+Jangan mengarang fakta.
 
 Maksimal 10 kata.
-Ideal 4–9 kata.
+Ideal 5–10 kata.
 
-Semakin dekat ke punchline,
-semakin sedikit kata.
-
-==================================================
-VARIASI HUMOR
-==================================================
-
-
-Setiap naskah harus terasa berbeda.
-
-Contoh yang diberikan di prompt hanya menunjukkan
-GAYA HUMOR, bukan template yang boleh ditiru terus-menerus.
-
-JANGAN mengulang struktur kalimat yang sama
-pada generasi berikutnya.
-
-Jangan terlalu sering menggunakan:
-
-- "Mereka X, kamu Y."
-- "Jangan X, karena Y."
-- "Tenang, ... ternyata ..."
-- "Jalan keluarnya? ..."
-- "Iya, ..."
-
-Gunakan variasi teknik:
-
-1. Wordplay
-2. Kontras
-3. Ironi
-4. Realita pahit
-5. Logika absurd
-6. Self roast
-7. Fake wisdom
-8. Twist
-9. Perbandingan
-10. Eskalasi absurd
-11. Double meaning
-12. Callback terhadap kata dari setup
-
-Pilih teknik yang paling cocok dengan TOPIK.
-Jangan memilih teknik secara acak jika membuat joke menjadi tidak natural.
-
-PUNCHLINE HARUS TERASA SEPERTI HASIL ALAMI
-DARI TOPIK, BUKAN KUMPULAN TEMPLATE.
-
-Contoh:
-
-TOPIK:
-"umur 30 belum sukses"
-
-Boleh:
-"Timeline mereka sudah deadline. Kamu masih loading."
-
-Tetapi jangan menganggap struktur
-"mereka X, kamu Y" sebagai pola wajib.
-
-Untuk topik lain, gunakan struktur berbeda.
-
-Tujuan akhirnya:
-Penonton tidak bisa menebak bentuk punchline
-hanya dari melihat dua video sebelumnya.
+Jika sedikit lebih banyak kata diperlukan agar akurat,
+prioritaskan akurasi daripada memaksakan kalimat terlalu pendek.
 
 ==================================================
-PERSONALITY
+GAYA PENJELASAN
 ==================================================
 
-Dia bukan orang marah.
+Tulislah seperti seseorang sedang menjelaskan sesuatu
+kepada temannya.
 
-Dia bukan membenci penonton.
+Gunakan:
+- bahasa Indonesia natural
+- bahasa sehari-hari
+- kalimat pendek
+- istilah sederhana
+- voice-over friendly
 
-Dia adalah motivator yang masih memberi semangat,
-tetapi terlalu sadar dengan kenyataan hidup.
-
-Tone:
-
-- santai
-- sarkas
-- cerdas
-- relatable
-- deadpan
-- absurd jika cocok
-- tidak berlebihan
+Jika istilah teknis diperlukan,
+gunakan tetapi jelaskan dengan bahasa sederhana.
 
 Hindari:
+- bahasa akademis yang kaku
+- definisi textbook
+- paragraf panjang
+- jargon berlebihan
+- gaya Wikipedia
+- gaya artikel berita
 
-- penghinaan kelompok
-- kebencian
-- politik
-- vulgar
-- ancaman
+==================================================
+VARIASI KONTEN
+==================================================
+
+Setiap video harus terasa berbeda.
+
+Gunakan sudut yang paling cocok dengan topik:
+
+1. Kenapa sesuatu terjadi?
+2. Bagaimana sesuatu bekerja?
+3. Apa yang sebenarnya terjadi?
+4. Mengapa manusia melakukan sesuatu?
+5. Mengapa benda memiliki sifat tertentu?
+6. Dari mana sebuah fenomena berasal?
+7. Kesalahpahaman yang sering dipercaya
+8. Perbandingan yang mengejutkan
+9. Sebab dan akibat
+10. Proses yang tidak terlihat
+11. Sejarah singkat sebuah fenomena
+12. Fakta yang bertentangan dengan intuisi
+
+Jangan memaksakan semua topik menjadi "fakta mengejutkan".
+
+==================================================
+ANTI MISINFORMASI
+==================================================
+
+Jika terdapat informasi populer yang belum tentu benar,
+jangan gunakan hanya karena populer.
+
+Jika fenomena memiliki beberapa faktor,
+jangan menyebut satu faktor sebagai satu-satunya penyebab
+kecuali sumber benar-benar mendukungnya.
+
+Jika penelitian belum sepakat,
+jangan membuat seolah-olah jawabannya sudah pasti.
 
 ==================================================
 VISUAL ENGINE
 ==================================================
 
-Selain naskah, tentukan konsep visual
-yang benar-benar mendukung isi script.
+Selain naskah, tentukan konsep visual yang benar-benar
+membantu menjelaskan fenomena dalam script.
 
-Jangan hanya memberikan keyword umum seperti:
-"stressed"
-jika visual bisa dibuat lebih spesifik.
+Visual bukan sekadar dekorasi.
+
+Visual harus dapat menggambarkan:
+- objek utama
+- aktivitas
+- proses
+- lingkungan
+- fenomena
+- situasi yang sedang dijelaskan
 
 Buat:
 
 visual_context
 =
-deskripsi singkat tentang situasi visual
+deskripsi konkret tentang situasi visual
 yang paling cocok dengan script.
 
 Contoh:
 
 Topik:
-"pengen bangun tidur jadi sultan"
+"Kenapa es mengapung?"
 
 visual_context:
-"person waking up in a luxurious bedroom"
+"ice cubes floating in a clear glass of water"
 
 BUKAN:
-"stress"
+"science"
 
 ==================================================
 BG KEYWORDS
@@ -576,46 +603,39 @@ BG KEYWORDS
 Buat 2–4 keyword Pexels dalam bahasa Inggris.
 
 Keyword harus:
-
 - konkret
 - visual
 - mudah dicari di Pexels
-- relevan dengan situasi
-- bukan abstraksi terlalu umum
+- berhubungan langsung dengan topik
+- memungkinkan ditemukan footage nyata
 
 Contoh:
-
 [
-    "luxury bedroom",
-    "wealthy lifestyle",
-    "expensive house"
+    "coffee roasting",
+    "coffee beans close up",
+    "pouring coffee"
 ]
 
 Bukan:
-
 [
-    "success",
-    "motivation",
-    "dream"
+    "knowledge",
+    "science",
+    "interesting"
 ]
-
-Pilih keyword yang paling mungkin menghasilkan
-video visual nyata.
 
 ==================================================
 ANTI-RANDOM VISUAL
 ==================================================
 
 Visual harus mempertimbangkan:
-
 - topik
-- hook
-- emosi
-- konteks kehidupan
-- punchline jika relevan
+- setup 1
+- setup 2
+- punchline / reveal
+- objek utama
+- proses yang dijelaskan
 
-Jangan memilih visual hanya karena
-keyword terdengar mirip.
+Jangan memilih visual hanya karena keyword terdengar mirip.
 
 ==================================================
 QUALITY CHECK
@@ -623,25 +643,26 @@ QUALITY CHECK
 
 Sebelum menghasilkan JSON, pastikan:
 
-1. Hook relatable?
-2. Motivation bait natural?
-3. Punchline membalik ekspektasi?
-4. Punchline lebih pendek?
-5. Punchline relevan?
-6. Punchline terlalu mudah ditebak?
-7. Terasa seperti tulisan AI?
-8. Bisa dibuat lebih tajam?
-9. Struktur humor terlalu mirip contoh?
-10. Visual benar-benar cocok?
-11. Keyword Pexels konkret?
-12. Visual tidak terlalu abstrak?
-13. Kalimat nyaman untuk video vertical?
+1. Topik jelas?
+2. Hook membuat penasaran?
+3. Setup 2 memberikan konteks?
+4. Reveal benar-benar menjawab pertanyaan?
+5. Informasi didukung hasil pencarian?
+6. Ada klaim yang terdengar dibuat-buat?
+7. Ada angka/detail yang tidak diperlukan?
+8. Ada klaim absolut yang tidak didukung?
+9. Script terasa seperti Wikipedia?
+10. Script terasa seperti tulisan AI?
+11. Bahasa nyaman untuk voice-over?
+12. Informasi tidak berulang?
+13. Visual benar-benar menggambarkan topik?
+14. Keyword Pexels konkret?
+15. Penonton mendapatkan pengetahuan baru?
 
-Jika punchline generik,
-buat ulang.
-
-Jika visual terlalu umum,
-buat lebih spesifik.
+Jika fakta meragukan, hapus atau sederhanakan.
+Jika reveal terlalu generik, buat lebih informatif.
+Jika hook terlalu biasa, buat lebih memancing rasa ingin tahu.
+Jika visual terlalu umum, buat lebih spesifik.
 
 ==================================================
 OUTPUT
@@ -652,6 +673,16 @@ Kembalikan HANYA JSON VALID.
 Tidak ada markdown.
 Tidak ada ```json.
 Tidak ada penjelasan tambahan.
+
+JANGAN menambahkan field lain.
+
+Gunakan TEPAT struktur JSON berikut.
+
+PENTING:
+Field "punchline" TETAP bernama "punchline"
+karena field tersebut digunakan oleh video engine.
+Isinya sekarang adalah KNOWLEDGE REVEAL,
+bukan joke/punchline humor.
 
 Format:
 
@@ -667,6 +698,7 @@ Format:
         "..."
     ]
 }}
+
 """
 
         # ==========================================
