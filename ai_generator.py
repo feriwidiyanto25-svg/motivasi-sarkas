@@ -1,5 +1,6 @@
 import json
-import google.generativeai as genai
+from google import genai
+from google.genai import types
 
 
 # ==========================================
@@ -250,14 +251,10 @@ def generate_naskah(
     # ==========================================
     # GEMINI
     # ==========================================
-    genai.configure(
-        api_key=api_key.strip()
-    )
-
     try:
 
-        model = genai.GenerativeModel(
-            model_name
+        client = genai.Client(
+            api_key=api_key.strip()
         )
 
         # ==========================================
@@ -701,11 +698,52 @@ Format:
 """
 
         # ==========================================
-        # GENERATE
+        # GENERATE DENGAN GOOGLE SEARCH GROUNDING
         # ==========================================
-        response = model.generate_content(
-            prompt,
-            tools="google_search_retrieval"
+        # Model tetap dinamis dari UI/GitHub Actions.
+        # Kontrak JSON sengaja dipertahankan agar video_engine
+        # tetap menerima field yang sama seperti sebelumnya.
+        #
+        # Gemini 3.x mendukung Structured Output + built-in tools.
+        # Untuk Gemini 2.5, tetap gunakan JSON MIME tanpa schema
+        # agar kompatibel dengan kombinasi tool yang lebih luas.
+        generation_config = {
+            "tools": [
+                types.Tool(
+                    google_search=types.GoogleSearch()
+                )
+            ],
+            "response_mime_type": "application/json",
+        }
+
+        if str(model_name).lower().startswith("gemini-3"):
+            generation_config["response_schema"] = {
+                "type": "OBJECT",
+                "properties": {
+                    "title": {"type": "STRING"},
+                    "setup_1": {"type": "STRING"},
+                    "setup_2": {"type": "STRING"},
+                    "punchline": {"type": "STRING"},
+                    "visual_context": {"type": "STRING"},
+                    "bg_keywords": {
+                        "type": "ARRAY",
+                        "items": {"type": "STRING"},
+                    },
+                },
+                "required": [
+                    "title",
+                    "setup_1",
+                    "setup_2",
+                    "punchline",
+                    "visual_context",
+                    "bg_keywords",
+                ],
+            }
+
+        response = client.models.generate_content(
+            model=model_name,
+            contents=prompt,
+            config=types.GenerateContentConfig(**generation_config)
         )
 
         teks = (
@@ -720,6 +758,83 @@ Format:
             return {
                 "error": "Gemini tidak menghasilkan teks."
             }
+
+        # ==========================================
+        # GROUNDING SOURCES LOG
+        # ==========================================
+        # Hanya untuk log. Tidak menambah field ke JSON output.
+        try:
+            citations = []
+
+            for candidate in (
+                getattr(response, "candidates", None) or []
+            ):
+                metadata = getattr(
+                    candidate,
+                    "grounding_metadata",
+                    None
+                )
+
+                if not metadata:
+                    continue
+
+                chunks = getattr(
+                    metadata,
+                    "grounding_chunks",
+                    None
+                ) or []
+
+                for chunk in chunks:
+                    web_item = getattr(
+                        chunk,
+                        "web",
+                        None
+                    )
+
+                    if not web_item:
+                        continue
+
+                    uri = getattr(
+                        web_item,
+                        "uri",
+                        None
+                    )
+
+                    title = getattr(
+                        web_item,
+                        "title",
+                        None
+                    )
+
+                    if uri and uri not in {item[1] for item in citations}:
+                        citations.append(
+                            (title or "Sumber web", uri)
+                        )
+
+            if citations:
+                print("")
+                print(
+                    "========== SOURCES / GROUNDING =========="
+                )
+
+                for title, uri in citations[:5]:
+                    print(
+                        f"- {title}: {uri}"
+                    )
+
+                print(
+                    "=========================================="
+                )
+            else:
+                print(
+                    "⚠️ Gemini tidak mengembalikan metadata sumber web."
+                )
+
+        except Exception as grounding_log_error:
+            print(
+                "⚠️ Gagal membaca metadata grounding: "
+                f"{grounding_log_error}"
+            )
 
         # ==========================================
         # PARSE JSON
@@ -740,6 +855,18 @@ Format:
             }
 
         # ==========================================
+        # NORMALISASI SCHEMA
+        # ==========================================
+        # Kontrak eksternal tetap "punchline" karena field ini
+        # dibaca langsung oleh video_engine.
+        if (
+            isinstance(hasil, dict)
+            and "punchline" not in hasil
+            and isinstance(hasil.get("reveal"), str)
+        ):
+            hasil["punchline"] = hasil.pop("reveal")
+
+        # ==========================================
         # VALIDASI
         # ==========================================
         hasil, validation_error = (
@@ -747,6 +874,73 @@ Format:
                 hasil
             )
         )
+
+        if validation_error:
+            # Satu retry dengan instruksi schema yang sangat eksplisit.
+            # Ini berguna untuk model yang kadang tetap menulis "reveal"
+            # atau melewatkan field walaupun sudah diminta JSON.
+            repair_prompt = f"""
+Koreksi output berikut menjadi JSON VALID dengan TEPAT enam field ini:
+
+{{
+  "title": "...",
+  "setup_1": "...",
+  "setup_2": "...",
+  "punchline": "...",
+  "visual_context": "...",
+  "bg_keywords": ["...", "..."]
+}}
+
+JANGAN menambahkan field lain.
+JANGAN menggunakan field "reveal".
+Field "punchline" adalah KNOWLEDGE REVEAL.
+Pertahankan fakta berdasarkan informasi hasil pencarian sebelumnya.
+Perbaiki hanya struktur/format jika memungkinkan.
+
+Output sebelumnya:
+{teks}
+"""
+
+            try:
+                repair_response = client.models.generate_content(
+                    model=model_name,
+                    contents=repair_prompt,
+                    config=types.GenerateContentConfig(
+                        response_mime_type="application/json"
+                    )
+                )
+
+                repair_text = (
+                    getattr(
+                        repair_response,
+                        "text",
+                        ""
+                    ) or ""
+                ).strip()
+
+                if repair_text:
+                    hasil = extract_json(
+                        repair_text
+                    )
+
+                    if (
+                        isinstance(hasil, dict)
+                        and "punchline" not in hasil
+                        and isinstance(hasil.get("reveal"), str)
+                    ):
+                        hasil["punchline"] = hasil.pop("reveal")
+
+                    hasil, validation_error = (
+                        validate_result(
+                            hasil
+                        )
+                    )
+
+            except Exception as repair_error:
+                print(
+                    "⚠️ Retry schema gagal: "
+                    f"{type(repair_error).__name__}: {repair_error}"
+                )
 
         if validation_error:
             return {
