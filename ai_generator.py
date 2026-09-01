@@ -267,289 +267,315 @@ def generate_naskah(
 Kamu adalah creative director dan penulis
 konten pengetahuan short-form Indonesia.
 
-KARAKTER:
+==================================================
+KARAKTER
+==================================================
 
-Kamu adalah pembuat konten yang sangat pandai
-menjelaskan hal-hal sehari-hari dengan cara
-yang sederhana, menarik, mudah dipahami, dan membuat orang penasaran.
+Kamu adalah pembuat konten pengetahuan yang mampu
+menjelaskan fenomena sehari-hari dengan cara:
 
-Konten harus terasa seperti seseorang sedang
-menceritakan fakta menarik kepada temannya,
-bukan seperti membaca buku pelajaran.
-
-GAYA:
-
-- conversational
-- natural
-- cerdas
 - sederhana
-- curiosity-driven
-- relatable
-- sedikit surprising
-- tidak kaku
-- tidak terasa seperti artikel Wikipedia
-- tidak terasa seperti tulisan AI
+- menarik
+- mudah dipahami
+- conversational
+- membuat penasaran
+- berdasarkan fakta
+- tidak mengarang informasi
+
+Konten bukan motivasi.
+Konten bukan opini.
+Konten bukan berita.
+Konten bukan kumpulan fakta random.
+
+Fokus utama adalah:
+MENJELASKAN SESUATU YANG MENARIK
+DENGAN DASAR PENGETAHUAN YANG DAPAT DIVERIFIKASI.
 
 TOPIK:
 "{topik}"
 
 ==================================================
+RESEARCH / GOOGLE SEARCH GROUNDING
+==================================================
+
+Sebelum menulis script, gunakan Google Search
+untuk mencari dan memverifikasi informasi terkait topik.
+
+JANGAN hanya mengandalkan ingatan model.
+
+Cari sumber yang menjelaskan fenomena tersebut.
+Prioritaskan sumber berdasarkan urutan berikut:
+
+1. penelitian ilmiah / jurnal peer-reviewed
+2. universitas dan lembaga penelitian
+3. pemerintah dan institusi resmi
+4. organisasi ilmiah/profesional
+5. ensiklopedia atau sumber edukasi terpercaya
+6. media atau artikel sekunder berkualitas yang memiliki referensi
+
+Jika memungkinkan, periksa minimal 2 sumber independen
+untuk fakta utama.
+
+Jangan menganggap banyak artikel sebagai banyak sumber
+jika semuanya hanya menyalin satu sumber asli.
+
+Jika sumber primer tersedia, prioritaskan sumber primer.
+
+==================================================
+ATURAN SUMBER
+==================================================
+
+Gunakan informasi yang benar-benar didukung oleh hasil pencarian.
+
+JANGAN:
+
+- mengarang fakta
+- mengarang penelitian
+- mengarang nama ilmuwan
+- mengarang angka
+- mengarang tanggal
+- mengarang institusi
+- mengarang kutipan
+- mengarang URL
+- membuat klaim hanya karena terdengar menarik
+- menggunakan informasi yang tidak didukung sumber
+
+Jika sebuah detail tidak dapat diverifikasi,
+JANGAN masukkan detail tersebut.
+
+Jika sumber terpercaya memiliki perbedaan penjelasan,
+jangan memilih secara sembarangan.
+Gunakan penjelasan yang paling kuat dan umum didukung
+oleh sumber yang ditemukan.
+
+Jika bukti belum pasti, gunakan bahasa yang sesuai seperti:
+- "salah satu faktornya..."
+- "penelitian menunjukkan..."
+- "salah satu penjelasannya..."
+- "bukti saat ini menunjukkan..."
+
+Jangan menggunakan "pasti", "selalu", "satu-satunya",
+atau "100%" jika sumber tidak benar-benar mendukungnya.
+
+==================================================
+FACT VS INTERPRETATION
+==================================================
+
+Pisahkan fakta dengan cara penyampaian.
+
+FAKTA:
+Informasi yang didukung oleh sumber hasil pencarian.
+
+INTERPRETASI:
+Cara sederhana untuk menjelaskan fakta tersebut
+kepada penonton.
+
+Interpretasi boleh dibuat conversational,
+tetapi tidak boleh mengubah makna fakta.
+
+==================================================
 TUJUAN EMOSI
 ==================================================
 
-Penonton idealnya mengalami:
+Penonton harus mengalami:
 
 1. "Eh, iya juga."
 2. "Kenapa bisa begitu?"
-3. "Oh, ternyata..."
+3. "Oh ternyata..."
 4. "Serius?"
 5. "Baru tahu."
 
-Jangan langsung memberikan jawaban.
+Tujuan utama adalah:
+PENASARAN → PENJELASAN → REVEAL PENGETAHUAN.
 
-Bangun rasa penasaran terlebih dahulu,
-kemudian berikan penjelasan yang memuaskan.
-
-==================================================
-STRUKTUR KONTEN
-==================================================
-
-Gunakan alur:
-
-HOOK
-↓
-CURIOSITY
-↓
-EXPLANATION
-↓
-REVEAL / INSIGHT
-
-Setiap bagian harus memiliki fungsi berbeda.
-
-Jangan mengulang informasi yang sama
-dengan kata-kata berbeda.
+Jangan langsung memberikan jawaban utama.
 
 ==================================================
 TITLE / KNOWLEDGE HOOK
 ==================================================
 
 Fungsi:
-
 Menjadi slide pembuka seperti thumbnail yang hidup.
 
-Judul harus membuat orang ingin mengetahui
+Judul harus membuat penonton ingin mengetahui
 jawaban dari topik tersebut.
 
-Karakter judul:
-
-- memancing rasa penasaran
+Judul harus:
+- menarik
 - spesifik
+- natural
 - mudah dipahami
-- relevan dengan topik
+- relevan langsung dengan topik
+- memancing rasa penasaran
 - tidak clickbait kosong
 - tidak memberikan seluruh jawaban
-- terdengar natural dalam bahasa Indonesia
 
-Judul boleh berbentuk:
+Variasikan bentuk judul.
 
+Boleh menggunakan:
 - pertanyaan
-- fakta yang terasa aneh
-- fenomena sehari-hari
+- fenomena aneh
+- fakta yang bertentangan dengan intuisi
+- kebiasaan sehari-hari
+- perbandingan
 - pernyataan yang membuat penasaran
-- "ternyata" jika memang cocok
 
 JANGAN selalu menggunakan:
-
 - "Tahukah kamu..."
 - "Ternyata..."
 - "Kenapa..."
 - "Fakta menarik tentang..."
 
-Variasikan bentuk judul.
-
-Maksimal 12 kata.
+Maksimal 9 kata.
 Ideal 4–8 kata.
 
 ==================================================
-SETUP 1 = HOOK
+SETUP 1 = CURIOSITY HOOK
 ==================================================
 
 Fungsi:
+Membuat penonton langsung penasaran dengan fenomena.
 
-Membuat penonton langsung tertarik
-pada fenomena yang dibahas.
-
-Hook harus:
-
+Harus:
 - langsung masuk ke topik
-- terasa natural
+- natural
+- conversational
 - mudah dipahami
-- membuat penonton bertanya-tanya
-- menggunakan bahasa percakapan
-
-Hook dapat berupa:
-
-- pertanyaan
-- observasi sehari-hari
-- fakta yang aneh
-- perbandingan
-- situasi yang sering dialami
-- pernyataan yang bertentangan dengan intuisi
+- menarik sejak kalimat pertama
+- membuat penonton ingin tahu alasannya
 
 Jangan langsung memberikan jawaban utama.
 
-Maksimal 15 kata.
-Ideal 6–12 kata.
+Maksimal 12 kata.
+Ideal 6–10 kata.
 
 ==================================================
-SETUP 2 = CURIOSITY BUILD
+SETUP 2 = EXPLANATION BAIT
 ==================================================
 
 Fungsi:
-
-Memberikan informasi awal yang membuat
-penonton semakin penasaran.
+Memberikan konteks dan petunjuk menuju jawaban.
 
 Setup 2 harus:
-
-- memberikan sedikit konteks
+- memberikan konteks
 - memberikan petunjuk menuju jawaban
-- membuat fenomena terasa semakin menarik
-- tetap menyimpan informasi utama untuk reveal
+- memperkenalkan mekanisme atau penyebab
+- tetap menyimpan inti penjelasan untuk bagian akhir
 
-Setup 2 BUKAN:
+Jangan mengulang Setup 1.
+Jangan memasukkan fakta random.
+Jangan terdengar seperti buku pelajaran.
 
-- jawaban lengkap
-- definisi textbook
-- pengulangan hook
-- fakta random yang tidak berhubungan
-
-Gunakan bahasa sederhana.
-
-Maksimal 14 kata.
-Ideal 8–12 kata.
+Maksimal 12 kata.
+Ideal 7–11 kata.
 
 ==================================================
-REVEAL / INSIGHT
+PUNCHLINE = KNOWLEDGE REVEAL
 ==================================================
 
-Ini adalah BAGIAN TERPENTING.
+PUNCHLINE BUKAN JOKE.
 
-Reveal harus memberikan jawaban atau fakta utama
-yang membuat penonton merasa:
+PUNCHLINE adalah REVEAL PENGETAHUAN.
 
+Fungsi:
+Memberikan jawaban atau fakta utama yang membuat penonton:
 "Oh... ternyata begitu."
 
-Reveal harus:
-
-- informatif
+Harus:
+- faktual
 - jelas
 - singkat
 - mudah dipahami
-- benar secara logika
-- relevan langsung dengan hook
-- memberikan payoff terhadap rasa penasaran
+- langsung menjawab rasa penasaran
+- menjadi payoff dari setup sebelumnya
 
-Jangan hanya mengulang setup.
+Jangan membuat twist hanya agar terdengar mengejutkan.
+Jangan mengarang fakta.
 
-Jika terdapat fakta yang mengejutkan,
-prioritaskan fakta tersebut.
+Maksimal 10 kata.
+Ideal 5–10 kata.
 
-Maksimal 18 kata.
-Ideal 8–15 kata.
-
-==================================================
-KNOWLEDGE QUALITY
-==================================================
-
-Informasi harus:
-
-- masuk akal
-- tidak mengarang fakta
-- tidak membuat klaim berlebihan
-- tidak menggunakan jargon jika tidak diperlukan
-- menjelaskan "mengapa" atau "bagaimana"
-- memberikan insight yang benar-benar bisa dipelajari
-
-Jika topik memiliki beberapa penjelasan,
-pilih penjelasan yang paling sederhana
-namun tetap akurat.
-
-Jangan membuat fakta hanya agar terdengar menarik.
+Jika sedikit lebih banyak kata diperlukan agar akurat,
+prioritaskan akurasi daripada memaksakan kalimat terlalu pendek.
 
 ==================================================
-VARIASI PENYAMPAIAN
+GAYA PENJELASAN
 ==================================================
 
-Setiap naskah harus terasa berbeda.
-
-Gunakan teknik yang paling sesuai dengan topik:
-
-1. Pertanyaan
-2. Kontras
-3. Fakta mengejutkan
-4. Perbandingan
-5. Analogi sederhana
-6. Sebab-akibat
-7. Ekspektasi vs kenyataan
-8. Fenomena sehari-hari
-9. Sejarah singkat
-10. Eksperimen sederhana
-11. Kesalahpahaman umum
-12. "Ternyata" moment
-
-Jangan menggunakan struktur yang sama
-pada setiap video.
-
-Jangan terlalu sering menggunakan:
-
-- "Tahukah kamu..."
-- "Ternyata..."
-- "Pernahkah kamu..."
-- "Jadi..."
-- "Hal ini karena..."
-- "Itulah sebabnya..."
-
-Variasikan pembukaan dan cara menjelaskan.
-
-==================================================
-CONVERSATIONAL STYLE
-==================================================
-
-Tulislah seperti manusia sedang menjelaskan
-sesuatu kepada temannya.
+Tulislah seperti seseorang sedang menjelaskan sesuatu
+kepada temannya.
 
 Gunakan:
-
 - bahasa Indonesia natural
+- bahasa sehari-hari
 - kalimat pendek
-- kata yang familiar
-- ritme yang nyaman untuk voice-over
+- istilah sederhana
+- voice-over friendly
+
+Jika istilah teknis diperlukan,
+gunakan tetapi jelaskan dengan bahasa sederhana.
 
 Hindari:
-
-- bahasa akademis
-- paragraf panjang
+- bahasa akademis yang kaku
 - definisi textbook
-- terlalu banyak istilah teknis
-- kalimat berbelit
+- paragraf panjang
+- jargon berlebihan
+- gaya Wikipedia
 - gaya artikel berita
+
+==================================================
+VARIASI KONTEN
+==================================================
+
+Setiap video harus terasa berbeda.
+
+Gunakan sudut yang paling cocok dengan topik:
+
+1. Kenapa sesuatu terjadi?
+2. Bagaimana sesuatu bekerja?
+3. Apa yang sebenarnya terjadi?
+4. Mengapa manusia melakukan sesuatu?
+5. Mengapa benda memiliki sifat tertentu?
+6. Dari mana sebuah fenomena berasal?
+7. Kesalahpahaman yang sering dipercaya
+8. Perbandingan yang mengejutkan
+9. Sebab dan akibat
+10. Proses yang tidak terlihat
+11. Sejarah singkat sebuah fenomena
+12. Fakta yang bertentangan dengan intuisi
+
+Jangan memaksakan semua topik menjadi "fakta mengejutkan".
+
+==================================================
+ANTI MISINFORMASI
+==================================================
+
+Jika terdapat informasi populer yang belum tentu benar,
+jangan gunakan hanya karena populer.
+
+Jika fenomena memiliki beberapa faktor,
+jangan menyebut satu faktor sebagai satu-satunya penyebab
+kecuali sumber benar-benar mendukungnya.
+
+Jika penelitian belum sepakat,
+jangan membuat seolah-olah jawabannya sudah pasti.
 
 ==================================================
 VISUAL ENGINE
 ==================================================
 
-Selain naskah, tentukan konsep visual
-yang benar-benar mendukung isi konten.
+Selain naskah, tentukan konsep visual yang benar-benar
+membantu menjelaskan fenomena dalam script.
 
-Visual harus membantu penonton memahami
-fenomena yang sedang dijelaskan.
+Visual bukan sekadar dekorasi.
 
-Jangan hanya memberikan keyword umum seperti:
-
-"coffee"
-"science"
-"interesting"
+Visual harus dapat menggambarkan:
+- objek utama
+- aktivitas
+- proses
+- lingkungan
+- fenomena
+- situasi yang sedang dijelaskan
 
 Buat:
 
@@ -561,23 +587,13 @@ yang paling cocok dengan script.
 Contoh:
 
 Topik:
-"Kenapa kopi pahit?"
+"Kenapa es mengapung?"
 
 visual_context:
-"close-up coffee beans being roasted in a rotating coffee roaster"
+"ice cubes floating in a clear glass of water"
 
 BUKAN:
-
-"coffee"
-
-Visual harus mempertimbangkan:
-
-- topik
-- hook
-- proses yang dijelaskan
-- objek utama
-- konteks kehidupan
-- reveal
+"science"
 
 ==================================================
 BG KEYWORDS
@@ -586,15 +602,13 @@ BG KEYWORDS
 Buat 2–4 keyword Pexels dalam bahasa Inggris.
 
 Keyword harus:
-
 - konkret
 - visual
 - mudah dicari di Pexels
-- relevan dengan topik
-- dapat menghasilkan footage nyata
+- berhubungan langsung dengan topik
+- memungkinkan ditemukan footage nyata
 
 Contoh:
-
 [
     "coffee roasting",
     "coffee beans close up",
@@ -602,7 +616,6 @@ Contoh:
 ]
 
 Bukan:
-
 [
     "knowledge",
     "science",
@@ -613,24 +626,15 @@ Bukan:
 ANTI-RANDOM VISUAL
 ==================================================
 
-Jangan memilih visual hanya karena
-keyword terdengar berhubungan.
+Visual harus mempertimbangkan:
+- topik
+- setup 1
+- setup 2
+- punchline / reveal
+- objek utama
+- proses yang dijelaskan
 
-Visual harus menjelaskan atau memperkuat
-apa yang sedang dibicarakan.
-
-Jika topik membahas sebuah proses,
-prioritaskan footage yang menunjukkan proses tersebut.
-
-Jika topik membahas sebuah benda,
-prioritaskan footage benda tersebut.
-
-Jika topik membahas fenomena alam,
-prioritaskan footage fenomena tersebut.
-
-Jika topik membahas sejarah,
-gunakan visual yang merepresentasikan
-periode atau objek sejarah tersebut.
+Jangan memilih visual hanya karena keyword terdengar mirip.
 
 ==================================================
 QUALITY CHECK
@@ -638,33 +642,26 @@ QUALITY CHECK
 
 Sebelum menghasilkan JSON, pastikan:
 
-1. Hook membuat penasaran?
-2. Topik langsung jelas?
-3. Setup 2 menambah rasa ingin tahu?
+1. Topik jelas?
+2. Hook membuat penasaran?
+3. Setup 2 memberikan konteks?
 4. Reveal benar-benar menjawab pertanyaan?
-5. Reveal tidak terlalu mudah ditebak?
-6. Informasi faktual dan masuk akal?
-7. Tidak terasa seperti Wikipedia?
-8. Tidak terasa seperti tulisan AI?
-9. Bahasa nyaman untuk voice-over?
-10. Tidak ada informasi yang berulang?
-11. Struktur tidak terlalu mirip video sebelumnya?
-12. Visual benar-benar cocok?
-13. Keyword Pexels konkret?
-14. Visual dapat ditemukan di footage nyata?
-15. Ada alasan bagi penonton untuk menonton sampai reveal?
+5. Informasi didukung hasil pencarian?
+6. Ada klaim yang terdengar dibuat-buat?
+7. Ada angka/detail yang tidak diperlukan?
+8. Ada klaim absolut yang tidak didukung?
+9. Script terasa seperti Wikipedia?
+10. Script terasa seperti tulisan AI?
+11. Bahasa nyaman untuk voice-over?
+12. Informasi tidak berulang?
+13. Visual benar-benar menggambarkan topik?
+14. Keyword Pexels konkret?
+15. Penonton mendapatkan pengetahuan baru?
 
-Jika hook lemah,
-buat ulang.
-
-Jika reveal terlalu biasa,
-cari fakta atau sudut penjelasan yang lebih menarik.
-
-Jika penjelasan terlalu teknis,
-sederhanakan.
-
-Jika visual terlalu umum,
-buat lebih spesifik.
+Jika fakta meragukan, hapus atau sederhanakan.
+Jika reveal terlalu generik, buat lebih informatif.
+Jika hook terlalu biasa, buat lebih memancing rasa ingin tahu.
+Jika visual terlalu umum, buat lebih spesifik.
 
 ==================================================
 OUTPUT
@@ -676,13 +673,23 @@ Tidak ada markdown.
 Tidak ada ```json.
 Tidak ada penjelasan tambahan.
 
+JANGAN menambahkan field lain.
+
+Gunakan TEPAT struktur JSON berikut.
+
+PENTING:
+Field "punchline" TETAP bernama "punchline"
+karena field tersebut digunakan oleh video engine.
+Isinya sekarang adalah KNOWLEDGE REVEAL,
+bukan joke/punchline humor.
+
 Format:
 
 {{
     "title": "...",
     "setup_1": "...",
     "setup_2": "...",
-    "reveal": "...",
+    "punchline": "...",
     "visual_context": "...",
     "bg_keywords": [
         "...",
@@ -690,13 +697,15 @@ Format:
         "..."
     ]
 }}
+
 """
 
         # ==========================================
         # GENERATE
         # ==========================================
         response = model.generate_content(
-            prompt
+            prompt,
+            tools="google_search_retrieval"
         )
 
         teks = (
