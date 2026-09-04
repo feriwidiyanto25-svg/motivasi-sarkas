@@ -151,16 +151,30 @@ def calculate_timings(naskah):
 # ==========================================
 # PEXELS SEARCH
 # ==========================================
+# ==========================================
+# PEXELS SEARCH (PERBAIKAN URL)
+# ==========================================
 def search_pexels(keyword, per_page=4):
-    if not PEXELS_API_KEY: return []
-    url = f"[https://api.pexels.com/videos/search?query=](https://api.pexels.com/videos/search?query=){keyword}&orientation=portrait&per_page={per_page}"
-    headers = {"Authorization": PEXELS_API_KEY}
+    if not PEXELS_API_KEY: 
+        return []
+    
+    # Pastikan URL murni teks biasa tanpa format markdown
+    url = f"https://api.pexels.com/videos/search?query={keyword}&orientation=portrait&per_page={per_page}"
+    
+    headers = {
+        "Authorization": PEXELS_API_KEY
+    }
+    
     try:
         response = requests.get(url, headers=headers, timeout=30)
+        
         if response.status_code != 200:
             print(f"Pexels error {response.status_code} untuk keyword '{keyword}'")
             return []
-        return response.json().get("videos", [])
+            
+        data = response.json()
+        return data.get("videos", [])
+        
     except requests.RequestException as e:
         print(f"Pexels request error: {e}")
         return []
