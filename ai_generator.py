@@ -38,7 +38,6 @@ def validate_result(hasil):
     if not isinstance(hasil["visual_context"], str) or len(hasil["visual_context"]) < 5:
         return None, "Field visual_context tidak valid atau terlalu pendek."
 
-    # Validasi Scenes untuk penjelasan yang lebih panjang
     if not isinstance(hasil["scenes"], list) or len(hasil["scenes"]) == 0:
         return None, "Field scenes harus berupa array/list kalimat."
     
@@ -70,33 +69,31 @@ def generate_naskah(topik, api_key, model_name="gemini-2.5-flash"):
     try:
         model = genai.GenerativeModel(model_name)
 
-        # Instruksi diubah: Fokus pada kejelasan, kedalaman, dan tanpa batasan durasi ketat
+        # Prompt disesuaikan untuk membatasi panjang naskah
         prompt = f"""
 Kamu adalah seorang edukator sains dan pengetahuan umum pembuat konten video.
-Fokus utamamu adalah menjelaskan hal kompleks menjadi sangat jelas, komprehensif, dan mudah dimengerti. 
-TIDAK ADA BATASAN DURASI, yang penting informasinya utuh.
+Fokus utamamu adalah menjelaskan hal kompleks menjadi sangat jelas dan mudah dimengerti. 
 
 TOPIK YANG DITANYAKAN:
 "{topik}"
 
 ATURAN UTAMA:
-1. FAKTUAL & MENDALAM: Jelaskan alasan sebenarnya secara ilmiah dan logis. Jangan mengarang. Jika ada proses sains/sejarah di baliknya, jelaskan proses itu dari A sampai Z.
+1. FAKTUAL & MENDALAM: Jelaskan alasan sebenarnya secara ilmiah dan logis. Jangan mengarang.
 2. BAHASA MENGALIR: Gunakan bahasa Indonesia sehari-hari yang nyaman didengar/dibaca. 
-3. STRUKTUR SCENE: Karena teks akan ditampilkan di video, pecah seluruh penjelasanmu menjadi banyak scene (misalnya 4 hingga 8 scene, atau lebih jika diperlukan). 
-4. PANJANG TEKS: Setiap scene boleh berisi 1 hingga 3 kalimat (jangan terlalu panjang sampai menutupi layar penuh, pecah ke scene berikutnya jika kepanjangan).
+3. BATASAN DURASI (PENTING): Video dibatasi maksimal 2.5 menit. Oleh karena itu, buatlah naskah maksimal 4 hingga 7 scene saja. Jangan bertele-tele.
+4. PANJANG TEKS: Setiap scene boleh berisi 1 hingga 2 kalimat yang padat dan jelas.
 
 OUTPUT WAJIB FORMAT JSON MURNI TANPA MARKDOWN:
 {{
-    "title": "Kenapa Rambut Bisa Berubah Menjadi Putih?",
+    "title": "Kenapa Rambut Berubah Putih?",
     "scenes": [
         "Warna rambut kita sebenarnya ditentukan oleh sel khusus bernama melanosit.",
-        "Sel melanosit ini bertugas memproduksi pigmen bernama melanin, yang memberikan warna hitam, coklat, atau pirang pada rambut.",
-        "Seiring bertambahnya usia, folikel rambut mulai mengalami kelelahan seluler dan produksi melanin menurun secara drastis.",
-        "Selain faktor usia, penumpukan hidrogen peroksida alami di folikel juga bisa 'memutihkan' rambut dari dalam.",
-        "Akibatnya, helai rambut baru yang tumbuh tidak lagi mendapat pasokan warna. Ia tumbuh dalam keadaan transparan.",
+        "Sel melanosit ini bertugas memproduksi pigmen bernama melanin yang memberi warna pada rambut.",
+        "Seiring bertambahnya usia, folikel rambut mengalami kelelahan dan produksi melanin menurun.",
+        "Akibatnya, helai rambut baru yang tumbuh tidak lagi mendapat pasokan warna dan menjadi transparan.",
         "Karena pantulan cahaya, rambut transparan ini terlihat putih atau abu-abu di mata kita."
     ],
-    "visual_context": "close up shot of someone combing white or gray hair or microscopic hair follicle",
+    "visual_context": "close up shot of someone combing white or gray hair",
     "bg_keywords": ["white hair", "elderly", "hair root"]
 }}
 """
