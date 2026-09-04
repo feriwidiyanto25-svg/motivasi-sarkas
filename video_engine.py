@@ -6,1706 +6,214 @@ import uuid
 import requests
 
 from dotenv import load_dotenv
-
-# ==========================================
-# PILLOW COMPATIBILITY
-# MoviePy 1.0.3 + Pillow terbaru
-# ==========================================
 from PIL import Image
 
-if not hasattr(
-    Image,
-    "ANTIALIAS"
-):
-    Image.ANTIALIAS = (
-        Image.Resampling.LANCZOS
-    )
+if not hasattr(Image, "ANTIALIAS"):
+    Image.ANTIALIAS = Image.Resampling.LANCZOS
 
-
-# ==========================================
-# IMAGEMAGICK
-# ==========================================
 from moviepy.config import change_settings
-
 if os.name == "nt":
+    # Sesuaikan path ImageMagick jika berbeda di komputermu
+    change_settings({"IMAGEMAGICK_BINARY": r"C:\Program Files\ImageMagick-7.1.1-Q16-HDRI\magick.exe"})
 
-    change_settings({
-        "IMAGEMAGICK_BINARY": (
-            r"E:\motivasi\ImageMagick"
-            r"\ImageMagick-7.1.2-Q16-HDRI\magick.exe"
-        )
-    })
-
-
-# ==========================================
-# MOVIEPY
-# ==========================================
 from moviepy.editor import (
-    VideoFileClip,
-    TextClip,
-    CompositeVideoClip,
-    concatenate_videoclips,
-    AudioFileClip,
-    CompositeAudioClip,
-    ColorClip,
-    vfx
+    VideoFileClip, TextClip, CompositeVideoClip, concatenate_videoclips,
+    AudioFileClip, ColorClip, vfx
 )
+from moviepy.audio.fx.all import audio_loop
 
-from moviepy.audio.fx.all import (
-    audio_loop
-)
-
-
-# ==========================================
-# ENVIRONMENT
-# ==========================================
 load_dotenv()
+PEXELS_API_KEY = os.getenv("PEXELS_API_KEY")
 
-PEXELS_API_KEY = os.getenv(
-    "PEXELS_API_KEY"
-)
-
-
-# ==========================================
-# VIDEO CONFIG
-# ==========================================
 VIDEO_WIDTH = 720
 VIDEO_HEIGHT = 1280
-
-TARGET_ASPECT_RATIO = (
-    VIDEO_WIDTH / VIDEO_HEIGHT
-)
+TARGET_ASPECT_RATIO = VIDEO_WIDTH / VIDEO_HEIGHT
 
 # ==========================================
-# DYNAMIC TIMING
+# TIMING & READING SETTINGS (RELAXED)
 # ==========================================
-WORDS_PER_SECOND = 2.0
+# Kecepatan baca diperlambat agar audiens lebih mudah mencerna teks panjang
+WORDS_PER_SECOND = 1.8 
+TITLE_DURATION = 3.0 # Judul ditahan lebih lama
 
-# Slide pembuka / title
-TITLE_DURATION = 1.5
-
-MIN_SETUP_DURATION = 1.5
-MAX_SETUP_DURATION = 2.0
-
-MIN_PUNCHLINE_DURATION = 1.5
-MAX_PUNCHLINE_DURATION = 2.0
-
-PUNCHLINE_PAUSE = 0.5
-
-# Video tidak lagi dipaksa sekitar 10 detik.
-# Durasi mengikuti kebutuhan joke, dengan batas yang lebih longgar.
-MIN_TOTAL_DURATION = 7.0
-MAX_TOTAL_DURATION = 10.0
+MIN_SCENE_DURATION = 3.0
+MAX_SCENE_DURATION = 15.0 # Batas maksimal di layar diperbesar untuk teks panjang
+MIN_TOTAL_DURATION = 10.0 # Durasi minimal video
 
 # ==========================================
-# TEXT
+# TEXT SETTINGS
 # ==========================================
-TEXT_WIDTH = 580
+TEXT_WIDTH = 620 # Diperlebar sedikit agar muat teks panjang
+TITLE_FONT_SIZE = 70
+SCENE_FONT_SIZE = 50 # Diperkecil dari 60 agar kalimat panjang tidak menutupi layar
 
-TITLE_FONT_SIZE = 75
-SETUP_FONT_SIZE = 60
-PUNCHLINE_FONT_SIZE = 75
-
-
-# ==========================================
-# UTIL
-# ==========================================
 def count_words(text):
+    return len((text or "").strip().split())
 
-    if not text:
-        return 0
+def calculate_reading_duration(text, min_dur, max_dur):
+    # Diberi tambahan waktu +1.0 detik untuk jeda nafas/mencerna informasi
+    duration = (count_words(text) / WORDS_PER_SECOND) + 1.0
+    return min(max(min_dur, duration), max_dur)
 
-    return len(
-        text.strip().split()
-    )
-
-
-# ==========================================
-# READING DURATION
-# ==========================================
-def calculate_reading_duration(
-    text,
-    min_duration,
-    max_duration
-):
-
-    word_count = count_words(
-        text
-    )
-
-    duration = (
-        word_count
-        / WORDS_PER_SECOND
-    )
-
-    duration = max(
-        min_duration,
-        duration
-    )
-
-    duration = min(
-        max_duration,
-        duration
-    )
-
-    return duration + 0.3
-
-
-# ==========================================
-# DYNAMIC TIMING
-# ==========================================
 def calculate_timings(naskah):
-
-    title = naskah.get(
-        "title",
-        ""
-    )
-
-    setup1 = naskah.get(
-        "setup_1",
-        ""
-    )
-
-    setup2 = naskah.get(
-        "setup_2",
-        ""
-    )
-
-    punchline = naskah.get(
-        "punchline",
-        ""
-    )
-
-    # --------------------------------------
-    # TITLE SLIDE
-    # --------------------------------------
+    title = naskah.get("title", "")
+    scenes = naskah.get("scenes", [])
+    
+    start_time = 0.0
     durasi_title = TITLE_DURATION
-    start_title = 0.0
+    
+    scene_timings = []
+    current_start = durasi_title
+    
+    for scene in scenes:
+        durasi = calculate_reading_duration(scene, MIN_SCENE_DURATION, MAX_SCENE_DURATION)
+        scene_timings.append({
+            "text": scene,
+            "start": current_start,
+            "duration": durasi
+        })
+        current_start += durasi
 
-    # --------------------------------------
-    # CONTENT DURATIONS
-    # --------------------------------------
-    durasi_setup1 = (
-        calculate_reading_duration(
-            setup1,
-            MIN_SETUP_DURATION,
-            MAX_SETUP_DURATION
-        )
-    )
-
-    durasi_setup2 = (
-        calculate_reading_duration(
-            setup2,
-            MIN_SETUP_DURATION,
-            MAX_SETUP_DURATION
-        )
-    )
-
-    durasi_punchline = (
-        calculate_reading_duration(
-            punchline,
-            MIN_PUNCHLINE_DURATION,
-            MAX_PUNCHLINE_DURATION
-        )
-    )
-
-    # Setup 1 dimulai setelah title slide.
-    start_setup1 = (
-        start_title
-        + durasi_title
-    )
-
-    start_setup2 = (
-        start_setup1
-        + durasi_setup1
-    )
-
-    start_punchline = (
-        start_setup2
-        + durasi_setup2
-        + PUNCHLINE_PAUSE
-    )
-
-    total_duration = (
-        start_punchline
-        + durasi_punchline
-    )
-
-    # --------------------------------------
-    # MINIMUM TOTAL
-    # --------------------------------------
-    if total_duration < MIN_TOTAL_DURATION:
-
-        tambahan = (
-            MIN_TOTAL_DURATION
-            - total_duration
-        )
-
-        durasi_setup2 += tambahan
-
-        start_punchline = (
-            start_setup2
-            + durasi_setup2
-            + PUNCHLINE_PAUSE
-        )
-
-        total_duration = (
-            start_punchline
-            + durasi_punchline
-        )
-
-    # --------------------------------------
-    # MAXIMUM TOTAL
-    # --------------------------------------
-    if total_duration > MAX_TOTAL_DURATION:
-
-        kelebihan = (
-            total_duration
-            - MAX_TOTAL_DURATION
-        )
-
-        # Kurangi setup 2 terlebih dahulu
-        pengurangan = min(
-            kelebihan,
-            max(
-                0,
-                durasi_setup2
-                - MIN_SETUP_DURATION
-            )
-        )
-
-        durasi_setup2 -= pengurangan
-        kelebihan -= pengurangan
-
-        # Jika masih terlalu panjang, kurangi setup 1
-        if kelebihan > 0:
-
-            pengurangan = min(
-                kelebihan,
-                max(
-                    0,
-                    durasi_setup1
-                    - MIN_SETUP_DURATION
-                )
-            )
-
-            durasi_setup1 -= pengurangan
-            kelebihan -= pengurangan
-
-        # Recalculate positions
-        start_setup2 = (
-            start_setup1
-            + durasi_setup1
-        )
-
-        start_punchline = (
-            start_setup2
-            + durasi_setup2
-            + PUNCHLINE_PAUSE
-        )
-
-        total_duration = (
-            start_punchline
-            + durasi_punchline
-        )
-
-    print("")
-    print(
-        "========== DYNAMIC TIMING =========="
-    )
-
-    print(
-        f"Title      : "
-        f"{count_words(title)} kata "
-        f"→ {durasi_title:.2f}s"
-    )
-
-    print(
-        f"Setup 1    : "
-        f"{count_words(setup1)} kata "
-        f"→ {durasi_setup1:.2f}s"
-    )
-
-    print(
-        f"Setup 2    : "
-        f"{count_words(setup2)} kata "
-        f"→ {durasi_setup2:.2f}s"
-    )
-
-    print(
-        f"Pause      : "
-        f"{PUNCHLINE_PAUSE:.2f}s"
-    )
-
-    print(
-        f"Punchline  : "
-        f"{count_words(punchline)} kata "
-        f"→ {durasi_punchline:.2f}s"
-    )
-
-    print(
-        f"TOTAL      : "
-        f"{total_duration:.2f}s"
-    )
-
-    print(
-        "===================================="
-    )
-    print("")
+    total_duration = max(current_start, MIN_TOTAL_DURATION)
+    
+    print("\n========== DYNAMIC TIMING ==========")
+    print(f"Title: {durasi_title:.2f}s")
+    for i, st in enumerate(scene_timings):
+        print(f"Scene {i+1} ({count_words(st['text'])} kata): {st['duration']:.2f}s")
+    print(f"TOTAL DURASI ESTIMASI: {total_duration:.2f}s")
+    print("====================================\n")
 
     return {
-        "start_title": start_title,
         "dur_title": durasi_title,
-
-        "start_setup1": start_setup1,
-        "dur_setup1": durasi_setup1,
-
-        "start_setup2": start_setup2,
-        "dur_setup2": durasi_setup2,
-
-        "start_punchline": start_punchline,
-        "dur_punchline": durasi_punchline,
-
+        "scene_timings": scene_timings,
         "total_duration": total_duration
     }
 
-
-# ==========================================
-# PEXELS SEARCH
-# ==========================================
-def search_pexels(
-    keyword,
-    per_page=4
-):
-
-    if not PEXELS_API_KEY:
-        return []
-
-    url = (
-        "https://api.pexels.com/videos/search"
-        f"?query={keyword}"
-        f"&orientation=portrait"
-        f"&per_page={per_page}"
-    )
-
-    headers = {
-        "Authorization": PEXELS_API_KEY
-    }
-
+def search_pexels(keyword, per_page=4):
+    if not PEXELS_API_KEY: return []
+    url = f"[https://api.pexels.com/videos/search?query=](https://api.pexels.com/videos/search?query=){keyword}&orientation=portrait&per_page={per_page}"
     try:
+        response = requests.get(url, headers={"Authorization": PEXELS_API_KEY}, timeout=15)
+        if response.status_code == 200: return response.json().get("videos", [])
+    except Exception: pass
+    return []
 
-        response = requests.get(
-            url,
-            headers=headers,
-            timeout=30
-        )
-
-        if response.status_code != 200:
-
-            print(
-                f"Pexels error {response.status_code} "
-                f"untuk keyword '{keyword}'"
-            )
-
-            return []
-
-        data = response.json()
-
-        return (
-            data.get(
-                "videos",
-                []
-            )
-        )
-
-    except requests.RequestException as e:
-
-        print(
-            f"Pexels request error: {e}"
-        )
-
-        return []
-
-    except Exception as e:
-
-        print(
-            f"Pexels parsing error: {e}"
-        )
-
-        return []
-
-
-# ==========================================
-# CHOOSE VIDEO FILE
-# ==========================================
-def choose_video_file(
-    video,
-    target_duration
-):
-
-    files = video.get(
-        "video_files",
-        []
-    )
-
-    candidates = []
-
-    for vf in files:
-
-        link = vf.get(
-            "link"
-        )
-
-        width = vf.get(
-            "width",
-            0
-        )
-
-        height = vf.get(
-            "height",
-            0
-        )
-
-        if not link:
-            continue
-
-        if width <= 0 or height <= 0:
-            continue
-
-        ratio = (
-            width / height
-        )
-
-        portrait_penalty = abs(
-            ratio
-            - TARGET_ASPECT_RATIO
-        )
-
-        duration = video.get(
-            "duration",
-            0
-        )
-
-        # Score:
-        # - portrait lebih baik
-        # - resolusi cukup
-        # - target duration lebih baik
-        score = 0
-
-        if height >= 1080:
-            score += 5
-
-        elif height >= 720:
-            score += 3
-
-        elif height >= 480:
-            score += 1
-
-        score -= (
-            portrait_penalty * 10
-        )
-
-        if duration >= target_duration:
-            score += 4
-
-        candidates.append(
-            (
-                score,
-                vf
-            )
-        )
-
-    if not candidates:
-        return None
-
-    candidates.sort(
-        key=lambda item: item[0],
-        reverse=True
-    )
-
-    return candidates[0][1]
-
-
-# ==========================================
-# DOWNLOAD BACKGROUND
-# ==========================================
-def fetch_background_video(
-    naskah,
-    target_duration
-):
-
-    visual_context = naskah.get(
-        "visual_context",
-        ""
-    )
-
-    keywords = naskah.get(
-        "bg_keywords",
-        []
-    )
-
-    # Compatibility
-    if not keywords:
-
-        fallback = naskah.get(
-            "bg_keyword"
-        )
-
-        if fallback:
-            keywords = [
-                fallback
-            ]
-
-    print("")
-    print(
-        "========== VISUAL SEARCH =========="
-    )
-
-    print(
-        f"Visual context: "
-        f"{visual_context}"
-    )
-
-    print(
-        f"Keywords: "
-        f"{keywords}"
-    )
-
-    print(
-        "==================================="
-    )
-
-    if not PEXELS_API_KEY:
-
-        print(
-            "PEXELS_API_KEY tidak ditemukan."
-        )
-
-        return None
-
-    all_candidates = []
-
-    # --------------------------------------
-    # Cari dari beberapa keyword
-    # --------------------------------------
+def fetch_background_video(naskah, target_duration):
+    keywords = naskah.get("bg_keywords", [])
+    if not keywords and naskah.get("bg_keyword"):
+        keywords = [naskah.get("bg_keyword")]
+        
     for keyword in keywords[:4]:
-
-        print(
-            f"Mencari Pexels: '{keyword}'"
-        )
-
-        videos = search_pexels(
-            keyword,
-            per_page=4
-        )
-
+        videos = search_pexels(keyword)
         for video in videos:
-
-            video["_search_keyword"] = (
-                keyword
-            )
-
-            all_candidates.append(
-                video
-            )
-
-    if not all_candidates:
-
-        print(
-            "Tidak ada kandidat Pexels."
-        )
-
-        return None
-
-    # --------------------------------------
-    # Evaluasi kandidat
-    # --------------------------------------
-    ranked = []
-
-    for video in all_candidates:
-
-        selected_file = (
-            choose_video_file(
-                video,
-                target_duration
-            )
-        )
-
-        if not selected_file:
-            continue
-
-        width = selected_file.get(
-            "width",
-            0
-        )
-
-        height = selected_file.get(
-            "height",
-            0
-        )
-
-        ratio = (
-            width / height
-            if height
-            else 0
-        )
-
-        aspect_penalty = abs(
-            ratio
-            - TARGET_ASPECT_RATIO
-        )
-
-        duration = video.get(
-            "duration",
-            0
-        )
-
-        score = 0
-
-        # ----------------------------------
-        # Aspect ratio
-        # ----------------------------------
-        score -= (
-            aspect_penalty * 20
-        )
-
-        # ----------------------------------
-        # Portrait
-        # ----------------------------------
-        if height > width:
-            score += 10
-
-        # ----------------------------------
-        # Duration
-        # ----------------------------------
-        if duration >= target_duration:
-            score += 8
-        else:
-            score -= (
-                target_duration
-                - duration
-            )
-
-        # ----------------------------------
-        # Resolution
-        # ----------------------------------
-        if height >= 1080:
-            score += 6
-
-        elif height >= 720:
-            score += 4
-
-        elif height >= 480:
-            score += 2
-
-        ranked.append(
-            {
-                "score": score,
-                "video": video,
-                "file": selected_file
-            }
-        )
-
-    if not ranked:
-
-        print(
-            "Tidak ada kandidat video yang valid."
-        )
-
-        return None
-
-    ranked.sort(
-        key=lambda item: item["score"],
-        reverse=True
-    )
-
-    best = ranked[0]
-
-    selected_video = best["video"]
-    selected_file = best["file"]
-
-    keyword_used = selected_video.get(
-        "_search_keyword",
-        ""
-    )
-
-    print(
-        f"Video terpilih dari keyword: "
-        f"{keyword_used}"
-    )
-
-    print(
-        f"Video score: "
-        f"{best['score']:.2f}"
-    )
-
-    print(
-        f"Resolution: "
-        f"{selected_file.get('width')}x"
-        f"{selected_file.get('height')}"
-    )
-
-    # ======================================
-    # DOWNLOAD + VALIDATE BACKGROUND
-    # ======================================
-    os.makedirs(
-        "temp",
-        exist_ok=True
-    )
-
-    # Coba beberapa kandidat terbaik sampai menemukan
-    # file yang benar-benar bisa dibaca MoviePy/FFmpeg.
-    for candidate_index, candidate in enumerate(ranked[:4], start=1):
-
-        selected_video = candidate["video"]
-        selected_file = candidate["file"]
-
-        video_url = selected_file.get(
-            "link"
-        )
-
-        if not video_url:
-            print(
-                f"Kandidat #{candidate_index}: link video kosong."
-            )
-            continue
-
-        unique_id = uuid.uuid4().hex[:12]
-
-        output_path = os.path.join(
-            "temp",
-            f"bg_{unique_id}.mp4"
-        )
-
-        try:
-
-            print(
-                f"Download kandidat background #{candidate_index}..."
-            )
-
-            response = requests.get(
-                video_url,
-                timeout=60
-            )
-
-            if response.status_code != 200:
-
-                print(
-                    f"Download gagal. HTTP {response.status_code}."
-                )
-                continue
-
-            content = response.content
-
-            # File yang sangat kecil hampir pasti bukan video valid.
-            if len(content) < 10000:
-
-                print(
-                    f"File background terlalu kecil: {len(content)} bytes."
-                )
-                continue
-
-            with open(
-                output_path,
-                "wb"
-            ) as file:
-
-                file.write(content)
-
-            print(
-                f"Background tersimpan: {output_path}"
-            )
-
-            # Validasi langsung dengan MoviePy. Konstruktor VideoFileClip
-            # membaca frame pertama sehingga file yang rusak/tidak kompatibel
-            # akan terdeteksi sebelum masuk ke proses render utama.
-            test_clip = None
-
-            try:
-                test_clip = VideoFileClip(
-                    output_path,
-                    audio=False
-                )
-
-                if (
-                    not test_clip.w
-                    or not test_clip.h
-                    or not test_clip.duration
-                ):
-                    raise ValueError(
-                        "Metadata video tidak valid."
-                    )
-
-                print(
-                    f"Background valid: {test_clip.w}x{test_clip.h}, "
-                    f"{test_clip.duration:.2f}s"
-                )
-
-                return output_path
-
-            except Exception as validation_error:
-
-                print(
-                    "Background tidak dapat dibaca MoviePy/FFmpeg: "
-                    f"{type(validation_error).__name__}: {validation_error}"
-                )
-
-                try:
-                    if test_clip:
-                        test_clip.close()
-                except Exception:
-                    pass
-
-                try:
-                    if os.path.exists(output_path):
-                        os.remove(output_path)
-                except Exception:
-                    pass
-
-                continue
-
-            finally:
-                try:
-                    if test_clip:
-                        test_clip.close()
-                except Exception:
-                    pass
-
-        except requests.RequestException as e:
-
-            print(
-                f"Download Pexels error: {e}"
-            )
-
-            try:
-                if os.path.exists(output_path):
-                    os.remove(output_path)
-            except Exception:
-                pass
-
-        except Exception as e:
-
-            print(
-                f"Background download/validation error: {type(e).__name__}: {e}"
-            )
-
-            try:
-                if os.path.exists(output_path):
-                    os.remove(output_path)
-            except Exception:
-                pass
-
-    print(
-        "Semua kandidat background gagal di-download atau divalidasi."
-    )
-
+            files = video.get("video_files", [])
+            for vf in files:
+                if vf.get("width", 0) > 0 and vf.get("height", 0) >= 720:
+                    link = vf.get("link")
+                    if link:
+                        os.makedirs("temp", exist_ok=True)
+                        output_path = os.path.join("temp", f"bg_{uuid.uuid4().hex[:8]}.mp4")
+                        try:
+                            req = requests.get(link, timeout=40) # Timeout diperbesar untuk donwload video yg mungkin agak panjang
+                            if req.status_code == 200 and len(req.content) > 10000:
+                                with open(output_path, "wb") as f: f.write(req.content)
+                                return output_path
+                        except: pass
     return None
 
-
-# ==========================================
-# FIT 9:16
-# ==========================================
-def fit_video_to_vertical(
-    video
-):
-
-    current_width = video.w
-    current_height = video.h
-
-    if not current_width or not current_height:
-
-        return video
-
-    current_ratio = (
-        current_width
-        / current_height
-    )
-
-    print(
-        f"Background asli: "
-        f"{current_width}x"
-        f"{current_height}"
-    )
-
-    # ======================================
-    # TERLALU LEBAR
-    # ======================================
-    if (
-        current_ratio
-        > TARGET_ASPECT_RATIO
-    ):
-
-        video = video.resize(
-            height=VIDEO_HEIGHT
-        )
-
-        new_width = video.w
-
-        x1 = (
-            new_width
-            - VIDEO_WIDTH
-        ) / 2
-
-        x2 = (
-            x1
-            + VIDEO_WIDTH
-        )
-
-        video = video.crop(
-            x1=x1,
-            y1=0,
-            x2=x2,
-            y2=VIDEO_HEIGHT
-        )
-
-    # ======================================
-    # TERLALU TINGGI
-    # ======================================
+def fit_video_to_vertical(video):
+    current_ratio = video.w / video.h
+    if current_ratio > TARGET_ASPECT_RATIO:
+        video = video.resize(height=VIDEO_HEIGHT)
+        x1 = (video.w - VIDEO_WIDTH) / 2
+        video = video.crop(x1=x1, y1=0, x2=x1+VIDEO_WIDTH, y2=VIDEO_HEIGHT)
     else:
-
-        video = video.resize(
-            width=VIDEO_WIDTH
-        )
-
-        new_height = video.h
-
-        y1 = (
-            new_height
-            - VIDEO_HEIGHT
-        ) / 2
-
-        y2 = (
-            y1
-            + VIDEO_HEIGHT
-        )
-
-        video = video.crop(
-            x1=0,
-            y1=y1,
-            x2=VIDEO_WIDTH,
-            y2=y2
-        )
-
-    print(
-        f"Background final: "
-        f"{video.w}x{video.h}"
-    )
-
+        video = video.resize(width=VIDEO_WIDTH)
+        y1 = (video.h - VIDEO_HEIGHT) / 2
+        video = video.crop(x1=0, y1=y1, x2=VIDEO_WIDTH, y2=y1+VIDEO_HEIGHT)
     return video
 
+def create_text_clip(text, fontsize, color, duration, stroke_width):
+    return (TextClip(text, fontsize=fontsize, color=color, method="caption", 
+                     size=(TEXT_WIDTH, None), font="Arial-Bold", align="center",
+                     stroke_color="black", stroke_width=stroke_width)
+            .set_position(("center", "center"))
+            .set_duration(duration))
 
-# ==========================================
-# TEXT
-# ==========================================
-def create_text_clip(
-    text,
-    fontsize,
-    color,
-    start,
-    duration,
-    stroke_width
-):
-    return (
-        TextClip(
-            text,
-            fontsize=fontsize,
-            color=color,
-            method="caption",
-            size=(
-                TEXT_WIDTH,
-                None
-            ),
-            font="DejaVu-Sans-Bold",
-            align="center",
-            stroke_color="black",
-            stroke_width=stroke_width
-        )
-        .set_position(
-            ("center", "center")
-        )
-        .set_start(
-            start
-        )
-        .set_duration(
-            duration
-        )
-    )
-
-
-# ==========================================
-# TEXT OVERLAY
-# ==========================================
-def generate_text_overlay(
-    naskah,
-    timings
-):
-
-    print(
-        "Membuat tata letak teks..."
-    )
-
-    # --------------------------------------
-    # TITLE / OPENING HOOK
-    # --------------------------------------
-    title_text = (
-        naskah.get(
-            "title",
-            ""
-        )
-        .strip()
-        .upper()
-    )
-
-    txt_title = create_text_clip(
-        title_text,
-        TITLE_FONT_SIZE,
-        "yellow",
-        timings["start_title"],
-        timings["dur_title"],
-        4
-    )
-
-    # --------------------------------------
-    # SETUP 1
-    # --------------------------------------
-    txt_setup1 = create_text_clip(
-        naskah["setup_1"],
-        SETUP_FONT_SIZE,
-        "white",
-        timings["start_setup1"],
-        timings["dur_setup1"],
-        2
-    )
-
-    # --------------------------------------
-    # SETUP 2
-    # --------------------------------------
-    txt_setup2 = create_text_clip(
-        naskah["setup_2"],
-        SETUP_FONT_SIZE,
-        "white",
-        timings["start_setup2"],
-        timings["dur_setup2"],
-        2
-    )
-
-    # --------------------------------------
-    # PUNCHLINE
-    # --------------------------------------
-    txt_punchline = create_text_clip(
-        naskah["punchline"],
-        PUNCHLINE_FONT_SIZE,
-        "yellow",
-        timings["start_punchline"],
-        timings["dur_punchline"],
-        3
-    )
-
-    return [
-        txt_title,
-        txt_setup1,
-        txt_setup2,
-        txt_punchline
-    ]
-
-
-# ==========================================
-# AUDIO
-# ==========================================
-def create_audio(
-    timings
-):
-
-    final_audio = None
-    audio_setup = None
-    audio_punchline = None
-
-    try:
-
-        setup_pool = glob.glob(
-            "assets/audio/setup/*.mp3"
-        )
-
-        punchline_pool = glob.glob(
-            "assets/audio/punchline/*.mp3"
-        )
-
-        if not setup_pool:
-
-            print(
-                "Audio setup tidak tersedia."
-            )
-
-            return None
-
-        if not punchline_pool:
-
-            print(
-                "Audio punchline tidak tersedia."
-            )
-
-            return None
-
-        # ==================================
-        # SETUP
-        # ==================================
-        setup_source = AudioFileClip(
-            random.choice(
-                setup_pool
-            )
-        )
-
-        setup_duration = (
-            timings["start_punchline"]
-        )
-
-        if (
-            setup_source.duration
-            >= setup_duration
-        ):
-
-            audio_setup = (
-                setup_source
-                .subclip(
-                    0,
-                    setup_duration
-                )
-            )
-
-        else:
-
-            audio_setup = audio_loop(
-                setup_source,
-                duration=setup_duration
-            )
-
-        # ==================================
-        # PUNCHLINE
-        # ==================================
-        punchline_source = (
-            AudioFileClip(
-                random.choice(
-                    punchline_pool
-                )
-            )
-        )
-
-        punchline_duration = (
-            timings["dur_punchline"]
-        )
-
-        if (
-            punchline_source.duration
-            >= punchline_duration
-        ):
-
-            audio_punchline = (
-                punchline_source
-                .subclip(
-                    0,
-                    punchline_duration
-                )
-                .set_start(
-                    timings["start_punchline"]
-                )
-            )
-
-        else:
-
-            audio_punchline = (
-                audio_loop(
-                    punchline_source,
-                    duration=punchline_duration
-                )
-                .set_start(
-                    timings["start_punchline"]
-                )
-            )
-
-        final_audio = (
-            CompositeAudioClip(
-                [
-                    audio_setup,
-                    audio_punchline
-                ]
-            )
-            .set_duration(
-                timings["total_duration"]
-            )
-        )
-
-        return final_audio
-
-    except Exception as e:
-
-        print(
-            f"Peringatan Audio: {e}"
-        )
-
-        return None
-
-
-# ==========================================
-# CLEANUP
-# ==========================================
-def safe_close(clip):
-
-    try:
-
-        if clip:
-            clip.close()
-
-    except Exception:
-
-        pass
-
-
-# ==========================================
-# RENDER FINAL VIDEO
-# ==========================================
-def render_final_video(
-    naskah
-):
-
-    print("")
-    print(
-        "===================================="
-    )
-    print(
-        "         MULAI RENDER VIDEO"
-    )
-    print(
-        "===================================="
-    )
-
-    timings = calculate_timings(
-        naskah
-    )
-
+def render_final_video(naskah):
+    print("\n======== MULAI RENDER VIDEO EDUKASI ========")
+    timings = calculate_timings(naskah)
     bg_path = None
-    source_video = None
-    video = None
-    final_video = None
-    final_audio = None
-    text_clips = []
-
+    composed_segments = []
+    
     try:
-
-        # ==================================
-        # GET BACKGROUND
-        # ==================================
-        bg_path = (
-            fetch_background_video(
-                naskah,
-                timings["total_duration"]
-            )
-        )
-
-        # ==================================
-        # BACKGROUND
-        # ==================================
-        if (
-            bg_path
-            and os.path.exists(
-                bg_path
-            )
-        ):
-
-            print(
-                "Membuka background video..."
-            )
-
-            source_video = (
-                VideoFileClip(
-                    bg_path,
-                    audio=False
-                )
-            )
-
-            source_video = (
-                fit_video_to_vertical(
-                    source_video
-                )
-            )
-
-            # ==================================
-            # DURASI
-            # ==================================
-            if (
-                source_video.duration
-                >= timings["total_duration"]
-            ):
-
-                video = (
-                    source_video
-                    .subclip(
-                        0,
-                        timings["total_duration"]
-                    )
-                )
-
+        bg_path = fetch_background_video(naskah, timings["total_duration"])
+        
+        if bg_path and os.path.exists(bg_path):
+            source_video = VideoFileClip(bg_path, audio=False)
+            source_video = fit_video_to_vertical(source_video)
+            
+            # Jika video Pexels lebih pendek dari teks kita yang panjang, otomatis loop!
+            if source_video.duration >= timings["total_duration"]:
+                video_bg = source_video.subclip(0, timings["total_duration"])
             else:
-
-                print(
-                    "Background lebih pendek "
-                    "dari kebutuhan. Loop..."
-                )
-
-                video = (
-                    source_video
-                    .fx(
-                        vfx.loop,
-                        duration=timings[
-                            "total_duration"
-                        ]
-                    )
-                )
-
-            video = (
-                video
-                .set_duration(
-                    timings["total_duration"]
-                )
-            )
-
+                print("Melakukan looping background video...")
+                video_bg = source_video.fx(vfx.loop, duration=timings["total_duration"])
         else:
+            video_bg = ColorClip(size=(VIDEO_WIDTH, VIDEO_HEIGHT), color=(0,0,0), duration=timings["total_duration"])
+            
+        # Gelapkan background agar teks tidak tenggelam
+        video_bg = video_bg.fx(vfx.colorx, 0.4)
 
-            print(
-                "Background gagal. "
-                "Menggunakan warna hitam."
-            )
+        # 1. RENDER TITLE
+        title_bg = video_bg.subclip(0, timings["dur_title"])
+        txt_title = create_text_clip(naskah.get("title", "").upper(), TITLE_FONT_SIZE, "yellow", timings["dur_title"], 3)
+        segment_title = CompositeVideoClip([title_bg, txt_title.set_start(0)])
+        composed_segments.append(segment_title)
+        
+        # 2. RENDER SCENES
+        for scene_info in timings["scene_timings"]:
+            start = scene_info["start"]
+            dur = scene_info["duration"]
+            
+            scene_bg = video_bg.subclip(start, start + dur)
+            txt_scene = create_text_clip(scene_info["text"], SCENE_FONT_SIZE, "white", dur, 2)
+            segment_scene = CompositeVideoClip([scene_bg, txt_scene.set_start(0)])
+            composed_segments.append(segment_scene)
 
-            video = ColorClip(
-                size=(
-                    VIDEO_WIDTH,
-                    VIDEO_HEIGHT
-                ),
-                color=(
-                    0,
-                    0,
-                    0
-                ),
-                duration=timings[
-                    "total_duration"
-                ]
-            )
-
-        # ==================================
-        # DARKEN BACKGROUND
-        # ==================================
-        video = video.fx(
-            vfx.colorx,
-            0.5
-        )
-
-        # ==================================
-        # TEXT
-        # ==================================
-        text_clips = (
-            generate_text_overlay(
-                naskah,
-                timings
-            )
-        )
-
-        # ==================================
-        # COMPOSITE (MEMORY OPTIMIZED)
-        # ==================================
-        # Hanya satu text clip yang aktif pada satu segmen.
-        # Ini menghindari CompositeVideoClip besar yang menampung
-        # title + setup 1 + setup 2 + punchline sekaligus.
-        title_clip, setup1_clip, setup2_clip, punchline_clip = text_clips
-
-        segment_specs = [
-            (
-                timings["start_title"],
-                timings["dur_title"],
-                title_clip,
-                "title"
-            ),
-            (
-                timings["start_setup1"],
-                timings["dur_setup1"],
-                setup1_clip,
-                "setup1"
-            ),
-            (
-                timings["start_setup2"],
-                timings["dur_setup2"],
-                setup2_clip,
-                "setup2"
-            ),
-            (
-                timings["start_punchline"] - PUNCHLINE_PAUSE,
-                PUNCHLINE_PAUSE,
-                None,
-                "pause"
-            ),
-            (
-                timings["start_punchline"],
-                timings["dur_punchline"],
-                punchline_clip,
-                "punchline"
-            )
-        ]
-
-        composed_segments = []
-
-        for start, duration, text_clip, segment_name in segment_specs:
-
-            segment_bg = (
-                video
-                .subclip(
-                    start,
-                    start + duration
-                )
-                .set_duration(duration)
-            )
-
-            if text_clip is not None:
-                segment_text = (
-                    text_clip
-                    .set_start(0)
-                    .set_duration(duration)
-                )
-
-                segment = (
-                    CompositeVideoClip(
-                        [segment_bg, segment_text],
-                        size=(
-                            VIDEO_WIDTH,
-                            VIDEO_HEIGHT
-                        )
-                    )
-                    .set_duration(duration)
-                )
-
-                # --------------------------------------
-                # SAVE OPENING TITLE AS YOUTUBE THUMBNAIL
-                # --------------------------------------
-                # This is intentionally derived from the exact
-                # same composite used as the first video segment,
-                # so the thumbnail matches the opening frame.
-                if segment_name == "title":
-
-                    thumbnail_path = os.path.join(
-                        "temp",
-                        "thumbnail.jpg"
-                    )
-
-                    try:
-
-                        segment.save_frame(
-                            thumbnail_path,
-                            t=0
-                        )
-
-                        # Re-save as optimized JPEG to keep the
-                        # thumbnail lightweight and compatible.
-                        with Image.open(
-                            thumbnail_path
-                        ) as thumbnail_image:
-
-                            thumbnail_image = thumbnail_image.convert(
-                                "RGB"
-                            )
-
-                            thumbnail_image.save(
-                                thumbnail_path,
-                                format="JPEG",
-                                quality=90,
-                                optimize=True
-                            )
-
-                        thumbnail_size = os.path.getsize(
-                            thumbnail_path
-                        )
-
-                        print(
-                            f"Thumbnail tersimpan: "
-                            f"{thumbnail_path} "
-                            f"({thumbnail_size / 1024:.1f} KB)"
-                        )
-
-                    except Exception as thumbnail_error:
-
-                        # Thumbnail is an additional output. A failure
-                        # here must never stop the existing video render.
-                        print(
-                            "⚠️ Gagal membuat thumbnail: "
-                            f"{type(thumbnail_error).__name__}: "
-                            f"{thumbnail_error}"
-                        )
-
-                        try:
-                            if os.path.exists(thumbnail_path):
-                                os.remove(thumbnail_path)
-                        except Exception:
-                            pass
-
-            else:
-                segment = segment_bg
-
-            composed_segments.append(segment)
-
-            print(
-                f"Segment {segment_name}: {duration:.2f}s"
-            )
-
-        # Chain lebih hemat dibanding satu CompositeVideoClip
-        # yang menampung seluruh text clip sekaligus.
-        final_video = concatenate_videoclips(
-            composed_segments,
-            method="chain"
-        )
-
-        final_video = (
-            final_video
-            .set_duration(
-                timings["total_duration"]
-            )
-        )
-
-        # ==================================
+        # GABUNGKAN SEMUA SEGMENT
+        final_video = concatenate_videoclips(composed_segments, method="chain")
+        
         # AUDIO
-        # ==================================
-        final_audio = create_audio(
-            timings
-        )
+        try:
+            audio_pool = glob.glob("assets/audio/setup/*.mp3")
+            if audio_pool:
+                bgm = AudioFileClip(random.choice(audio_pool))
+                if bgm.duration < timings["total_duration"]:
+                    bgm = audio_loop(bgm, duration=timings["total_duration"])
+                else:
+                    bgm = bgm.subclip(0, timings["total_duration"])
+                final_video = final_video.set_audio(bgm)
+        except Exception as e:
+            print(f"Peringatan Audio: {e}")
 
-        if final_audio:
-
-            final_video = (
-                final_video
-                .set_audio(
-                    final_audio
-                )
-            )
-
-        # ==================================
-        # OUTPUT UNIQUE
-        # ==================================
-        os.makedirs(
-            "temp",
-            exist_ok=True
-        )
-
-        unique_id = uuid.uuid4().hex[:12]
-
-        output_path = os.path.join(
-            "temp",
-            f"final_{unique_id}.mp4"
-        )
-
-        # ==================================
         # EXPORT
-        # ==================================
-        print("")
-        print(
-            "Mengekspor video..."
-        )
-
-        final_video.write_videofile(
-            output_path,
-            fps=24,
-            codec="libx264",
-            audio_codec="aac",
-            preset="ultrafast",
-            threads=1,
-            logger=None
-        )
-
-        print("")
-        print(
-            "===================================="
-        )
-
-        print(
-            "       VIDEO SELESAI DIBUAT"
-        )
-
-        print(
-            "===================================="
-        )
-
-        print(
-            f"Durasi: "
-            f"{timings['total_duration']:.2f}s"
-        )
-
-        print(
-            f"Output: "
-            f"{output_path}"
-        )
-
+        os.makedirs("temp", exist_ok=True)
+        output_path = os.path.join("temp", f"edukasi_{uuid.uuid4().hex[:8]}.mp4")
+        
+        print(f"\nMengekspor video (Estimasi durasi: {timings['total_duration']:.2f} detik)...")
+        final_video.write_videofile(output_path, fps=24, codec="libx264", audio_codec="aac", preset="ultrafast", threads=2, logger=None)
+        print(f"VIDEO SELESAI: {output_path}")
+        
         return output_path
 
     except Exception as e:
-
-        print("")
-        print(
-            "ERROR SAAT RENDER VIDEO:"
-        )
-
-        print(
-            f"{type(e).__name__}: {e}"
-        )
-
+        print(f"ERROR RENDER: {e}")
         import traceback
         traceback.print_exc()
-
         return None
-
     finally:
-
-        # ==================================
-        # CLOSE RESOURCES
-        # ==================================
-        safe_close(
-            final_audio
-        )
-
-        safe_close(
-            final_video
-        )
-
-        safe_close(
-            video
-        )
-
-        safe_close(
-            source_video
-        )
-
-        for clip in text_clips:
-
-            safe_close(
-                clip
-            )
-
-        # ==================================
-        # DELETE RAW BACKGROUND
-        # ==================================
-        if (
-            bg_path
-            and os.path.exists(
-                bg_path
-            )
-        ):
-
-            try:
-
-                os.remove(
-                    bg_path
-                )
-
-                print(
-                    f"Temporary background "
-                    f"dihapus: {bg_path}"
-                )
-
-            except Exception:
-
-                pass
-
         gc.collect()
+        if bg_path and os.path.exists(bg_path):
+            try: os.remove(bg_path)
+            except: pass
