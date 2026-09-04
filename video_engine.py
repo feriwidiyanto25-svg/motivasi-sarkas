@@ -199,7 +199,7 @@ def render_final_video(naskah):
 
         # EXPORT
         os.makedirs("temp", exist_ok=True)
-        output_path = os.path.join("temp", f"edukasi_{uuid.uuid4().hex[:8]}.mp4")
+        output_path = os.path.join("temp", f"final_{uuid.uuid4().hex[:12]}.mp4")
         
         print(f"\nMengekspor video (Estimasi durasi: {timings['total_duration']:.2f} detik)...")
         final_video.write_videofile(output_path, fps=24, codec="libx264", audio_codec="aac", preset="ultrafast", threads=2, logger=None)
