@@ -222,7 +222,7 @@ CONTOH BENAR:
 
 "Sistem ini kemudian bertahan sampai sekarang."
 
-"Nah, baru kepikiran, kan?"
+"Nah, baru tau atau sudah tau nih.?"
 
 ==================================================
 ATURAN PECAH SCENE
