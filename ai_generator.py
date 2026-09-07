@@ -61,38 +61,7 @@ def validate_result(hasil):
 # ==========================================
 # GENERATE NASKAH KENAPAYA?
 # ==========================================
-def generate_naskah(
-    topik,
-    api_key,
-    model_name="gemini-2.5-flash",
-    duration_seconds=60
-):
-    if not api_key or api_key.strip() == "":
-        return {"error": "Gemini API Key wajib diisi!"}
-
-    if not topik or not topik.strip():
-        return {"error": "Topik wajib diisi!"}
-
-    # Durasi hanya digunakan sebagai panduan panjang naskah.
-    # Tidak dijadikan validasi batas.
-    try:
-        duration_seconds = int(duration_seconds)
-    except (TypeError, ValueError):
-        duration_seconds = 60
-
-    genai.configure(api_key=api_key.strip())
-
-    try:
-        model = genai.GenerativeModel(model_name)
-
-        # ==========================================
-        # PERKIRAAN PANJANG NASKAH
-        # ==========================================
-        # Bahasa Indonesia: kira-kira 2.2 kata/detik.
-        # Kita beri ruang agar naskah tidak terlalu panjang.
-        target_words = max(20, int(duration_seconds * 2.2))
-
-        # ==========================================
+# ==========================================
 # GENERATE NASKAH KENAPAYA?
 # ==========================================
 def generate_naskah(
@@ -222,9 +191,9 @@ Setiap scene harus sangat singkat.
 
 BATAS IDEAL:
 
-- 4 sampai 22 kata per scene.
-- Usahakan maksimal sekitar 20 kata.
-- Jika kalimat lebih panjang dari 20 kata,
+- 4 sampai 12 kata per scene.
+- Usahakan maksimal sekitar 14 kata.
+- Jika kalimat lebih panjang dari 14 kata,
   PECAH menjadi dua atau lebih scene.
 - Satu scene hanya boleh menyampaikan SATU ide utama.
 - Jangan menggabungkan dua penjelasan berbeda
