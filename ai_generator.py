@@ -188,9 +188,9 @@ Setiap scene harus sangat singkat.
 
 BATAS IDEAL:
 
-- 4 sampai 12 kata per scene.
+- 10 sampai 15 kata per scene.
 - Usahakan maksimal sekitar 14 kata.
-- Jika kalimat lebih panjang dari 14 kata,
+- Jika kalimat lebih panjang dari 16 kata,
   PECAH menjadi dua atau lebih scene.
 - Satu scene hanya boleh menyampaikan SATU ide utama.
 - Jangan menggabungkan dua penjelasan berbeda
@@ -203,26 +203,6 @@ CONTOH SALAH:
 "Jadi, kebiasaan kita menghitung waktu dengan angka 60
 merupakan warisan sistem matematika kuno yang sangat
 praktis dan akhirnya tetap digunakan sampai sekarang."
-
-Terlalu panjang.
-
-CONTOH BENAR:
-
-"Kenapa satu menit punya 60 detik?"
-
-"Ternyata ini bukan kebetulan."
-
-"Sistem ini sudah ada sejak zaman kuno."
-
-"Bangsa kuno menggunakan sistem berbasis 60."
-
-"Angka 60 ternyata sangat mudah dibagi."
-
-"Itulah yang membuatnya praktis."
-
-"Sistem ini kemudian bertahan sampai sekarang."
-
-"Nah, baru tau atau sudah tau nih.?"
 
 ==================================================
 ATURAN PECAH SCENE
