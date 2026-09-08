@@ -466,7 +466,7 @@ def render_final_video(naskah):
             print("Background gagal. Menggunakan warna hitam.")
             video = ColorClip(size=(VIDEO_WIDTH, VIDEO_HEIGHT), color=(0,0,0), duration=timings["total_duration"])
 
-        video = video.fx(vfx.colorx, 0.4) 
+        video = video.fx(vfx.colorx, 0.8) 
 
         text_segments_info = generate_text_overlay(naskah, timings)
         composed_segments = []
