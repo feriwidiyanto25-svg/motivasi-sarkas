@@ -338,7 +338,7 @@ jobs:
           8. Jangan memasukkan URL.
           9. Hashtag harus relevan.
           10. Selalu sertakan:
-              #motivasiSarkas
+              #k3napaYa
               #shorts
           11. Jangan memasukkan hashtag yang tidak relevan.
           12. Description jangan terlalu panjang.
@@ -487,10 +487,10 @@ jobs:
               )
           )
 
-          if "#motivasiSarkas" not in hashtags:
+          if "#k3napaYa" not in hashtags:
               hashtags.insert(
                   0,
-                  "#motivasiSarkas"
+                  "#k3napaYa"
               )
 
           if "#shorts" not in hashtags:
