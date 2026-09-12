@@ -54,7 +54,6 @@ PEXELS_API_KEY = os.getenv("PEXELS_API_KEY")
 VIDEO_WIDTH = 720
 VIDEO_HEIGHT = 1280
 
-# Video akan menempati sekitar 60% layar atas (760px)
 TOP_VIDEO_HEIGHT = 760
 TARGET_ASPECT_RATIO = VIDEO_WIDTH / TOP_VIDEO_HEIGHT
 
@@ -66,14 +65,14 @@ MIN_SCENE_DURATION = 3.0
 MAX_SCENE_DURATION = 15.0
 
 MIN_TOTAL_DURATION = 10.0
-MAX_TOTAL_DURATION = 150.0 # BATES MAKSIMAL 2.5 MENIT AGAR TELEGRAM AMAN
+MAX_TOTAL_DURATION = 150.0 
 
 # ==========================================
 # TEXT CONFIG (EDUKASI)
 # ==========================================
 TEXT_WIDTH = 620
-TITLE_FONT_SIZE = 55 
-SCENE_FONT_SIZE = 35
+TITLE_FONT_SIZE = 45 
+SCENE_FONT_SIZE = 30
 
 # ==========================================
 # UTIL
@@ -99,7 +98,6 @@ def calculate_timings(naskah):
     title = naskah.get("title", "")
     raw_scenes = naskah.get("scenes", [])
 
-    # Memotong teks yang kepanjangan (Maks 12 Kata per layar)
     scenes = []
     for text in raw_scenes:
         words = text.split()
@@ -125,7 +123,6 @@ def calculate_timings(naskah):
         
     total_duration = max(current_start, MIN_TOTAL_DURATION)
 
-    # Auto-scaling agar tidak melebihi 2.5 menit (untuk Telegram)
     if total_duration > MAX_TOTAL_DURATION:
         print(f"\n⚠️ Peringatan: Durasi mentah ({total_duration:.1f}s) melebihi batas {MAX_TOTAL_DURATION}s.")
         print("Melakukan auto-scaling agar aman untuk Telegram...")
@@ -151,7 +148,7 @@ def calculate_timings(naskah):
 
     return {
         "start_title": 0.0,
-        "dur_title": total_duration, # Judul tayang sepanjang video
+        "dur_title": total_duration, 
         "scene_timings": scene_timings,
         "total_duration": total_duration
     }
@@ -335,7 +332,7 @@ def fetch_background_video(naskah, target_duration):
     return None
 
 # ==========================================
-# FIT VIDEO TO TOP HALF (Memotong bagian atas)
+# FIT VIDEO TO TOP HALF
 # ==========================================
 def fit_video_to_top_half(video):
     current_width = video.w
@@ -384,12 +381,11 @@ def create_text_clip(text, fontsize, color, start, duration, position, align="We
 def generate_layout_elements(naskah, timings):
     clips = []
     
-    # Koordinat Y Pasti (Mencegah error txt_title.h)
     BADGE_Y = TOP_VIDEO_HEIGHT + 35    # Y = 795
     TITLE_Y = BADGE_Y + 45 + 15        # Y = 855
-    SCENE_Y = TITLE_Y + 140            # Y = 995 (Spasi cukup untuk 2-3 baris judul)
+    SCENE_Y = TITLE_Y + 140            # Y = 995 
 
-    # 1. BADGE "KENAPA YA?" KUNING (Permanen)
+    # 1. BADGE "KENAPA YA?"
     badge_bg = ColorClip(size=(180, 45), color=(242, 201, 76)).set_position((50, BADGE_Y)).set_start(0).set_duration(timings["total_duration"])
     
     font_path = os.path.abspath(os.path.join("assets", "Poppins-Bold.ttf"))
@@ -398,12 +394,12 @@ def generate_layout_elements(naskah, timings):
     badge_text = TextClip("KENAPA YA?", fontsize=22, color="black", font=font_path).set_position((62, BADGE_Y + 8)).set_start(0).set_duration(timings["total_duration"])
     clips.extend([("badge_bg", badge_bg), ("badge_text", badge_text)])
 
-    # 2. JUDUL PERMANEN (Putih Tebal, Rata Kiri)
+    # 2. JUDUL PERMANEN
     title_text = naskah.get("title", "").strip()
     txt_title = create_text_clip(title_text, TITLE_FONT_SIZE, "white", 0, timings["total_duration"], (50, TITLE_Y), align="West")
     clips.append(("title", txt_title))
 
-    # 3. TEKS SCENE (Abu-abu terang, Rata Kiri)
+    # 3. TEKS SCENE
     for sc in timings["scene_timings"]:
         txt_scene = create_text_clip(sc["text"], SCENE_FONT_SIZE, "#d1d5db", sc["start"], sc["duration"], (50, SCENE_Y), align="West")
         clips.append((sc["name"], txt_scene))
@@ -411,7 +407,7 @@ def generate_layout_elements(naskah, timings):
     return clips
 
 # ==========================================
-# AUDIO (BGM LOOP)
+# AUDIO
 # ==========================================
 def create_audio(timings):
     try:
@@ -440,7 +436,7 @@ def safe_close(clip):
     except: pass
 
 # ==========================================
-# RENDER FINAL VIDEO (SPLIT-SCREEN MODE)
+# RENDER FINAL VIDEO (FIX OVERLAP)
 # ==========================================
 def render_final_video(naskah):
     print("")
@@ -455,10 +451,8 @@ def render_final_video(naskah):
     video = None
     final_video = None
     final_audio = None
-    all_clips_ref = []
 
     try:
-        # BASE CANVAS: Warna Background Abu-abu sangat gelap untuk panel bawah (TIDAK HITAM PEKAT)
         base_canvas = ColorClip(size=(VIDEO_WIDTH, VIDEO_HEIGHT), color=(20, 22, 28), duration=timings["total_duration"])
         
         bg_path = fetch_background_video(naskah, timings["total_duration"])
@@ -466,17 +460,13 @@ def render_final_video(naskah):
         if bg_path and os.path.exists(bg_path):
             print("Membuka background video...")
             source_video = VideoFileClip(bg_path, audio=False)
-            
-            # FIT HANYA SETENGAH ATAS LAYAR
             video = fit_video_to_top_half(source_video)
 
             if video.duration >= timings["total_duration"]:
                 video = video.subclip(0, timings["total_duration"])
             else:
-                print("Background lebih pendek dari kebutuhan. Loop...")
                 video = video.fx(vfx.loop, duration=timings["total_duration"])
             
-            # VIDEO TIDAK DIGELAPKAN SAMA SEKALI, TAPI DIPOSISIKAN DI ATAS
             video = video.set_position(("center", "top"))
         else:
             print("Background gagal. Menggunakan warna abu-abu untuk area video.")
@@ -485,7 +475,6 @@ def render_final_video(naskah):
         layout_elements = generate_layout_elements(naskah, timings)
         composed_segments = []
 
-        # RENDER CHUNKING (MEMORY OPTIMIZED)
         print("Menggabungkan layer video...")
         current_time = 0.0
         while current_time < timings["total_duration"]:
@@ -496,15 +485,26 @@ def render_final_video(naskah):
                 video.subclip(current_time, current_time + segment_dur).set_start(0)
             ]
             
+            # LOGIKA BARU: MENGHITUNG WAKTU RELATIF AGAR TEKS TIDAK NUMPUK
             for name, clip in layout_elements:
-                if current_time < (clip.start + clip.duration) and (current_time + segment_dur) > clip.start:
-                    active_clips.append(clip.set_start(0).set_duration(segment_dur))
-                    all_clips_ref.append(clip)
+                clip_start = clip.start
+                clip_end = clip.start + clip.duration
+                
+                # Jika clip ini tayang di dalam waktu potongan (chunk) ini
+                if current_time < clip_end and (current_time + segment_dur) > clip_start:
+                    
+                    # Hitung kapan dia harus mulai dan selesai di dalam frame 1 detik ini
+                    rel_start = max(0.0, clip_start - current_time)
+                    rel_end = min(segment_dur, clip_end - current_time)
+                    rel_dur = rel_end - rel_start
+                    
+                    if rel_dur > 0:
+                        # Masukkan dengan posisi waktu spesifik, jangan dipaksa set_start(0) semua
+                        active_clips.append(clip.set_start(rel_start).set_duration(rel_dur))
 
             segment = CompositeVideoClip(active_clips, size=(VIDEO_WIDTH, VIDEO_HEIGHT)).set_duration(segment_dur)
             composed_segments.append(segment)
             
-            # GENERATE THUMBNAIL PADA DETIK 0.5
             if current_time == 0.0:
                 thumbnail_path = os.path.join("temp", "thumbnail.jpg")
                 try:
@@ -529,7 +529,6 @@ def render_final_video(naskah):
         
         output_path = os.path.join("temp", f"final_{unique_id}.mp4")
 
-        # PENGATURAN KOMPRESI
         print("\nMengekspor video Split-Screen...")
         final_video.write_videofile(
             output_path,
@@ -564,8 +563,11 @@ def render_final_video(naskah):
         safe_close(final_video)
         safe_close(video)
         safe_close(source_video)
-        for clip in all_clips_ref:
-            safe_close(clip)
+        
+        # Membersihkan klip dasar
+        if 'layout_elements' in locals():
+            for name, clip in layout_elements:
+                safe_close(clip)
 
         if bg_path and os.path.exists(bg_path):
             try:
