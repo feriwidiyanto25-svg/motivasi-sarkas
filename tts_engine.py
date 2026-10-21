@@ -36,7 +36,6 @@ def generate_voiceover_for_scenes(scenes: list, output_dir: str = None, voice: s
     scene_timings = []
     audio_clips = []
     current_time = 0.0
-    gap_between_scenes = 0.25  # Jeda natural 0.25 detik antar kalimat
 
     print(f"\n🎙️ Meng-generate Voiceover ({voice})...")
 
@@ -52,12 +51,12 @@ def generate_voiceover_for_scenes(scenes: list, output_dir: str = None, voice: s
         clip = AudioFileClip(audio_file)
         dur = clip.duration
 
-        # Durasi tampilan teks = durasi suara + jeda
-        scene_duration = dur + gap_between_scenes
+        # Durasi tampilan teks persis 1:1 dengan durasi audio (menghindari audio drift)
+        scene_duration = dur
 
         scene_timings.append({
             "name": f"scene_{i}",
-            "text": clean_text,
+            "text": clean_text.upper(),
             "start": current_time,
             "duration": scene_duration,
             "audio_duration": dur,

@@ -50,9 +50,18 @@ VIDEO_WIDTH = config.VIDEO_WIDTH
 VIDEO_HEIGHT = config.VIDEO_HEIGHT
 TARGET_ASPECT_RATIO = VIDEO_WIDTH / VIDEO_HEIGHT
 
-TEXT_WIDTH = 620
+TEXT_WIDTH = 640
 TITLE_FONT_SIZE = 38
-SCENE_FONT_SIZE = 38
+SCENE_FONT_SIZE = 44
+
+def get_font_path():
+    """Mengambil path font Poppins-Black dengan forward slashes untuk kompatibilitas ImageMagick."""
+    font_path = os.path.abspath(os.path.join(config.BASE_DIR, "assets", "Poppins-Black.ttf")).replace('\\', '/')
+    if not os.path.exists(font_path):
+        font_path = os.path.abspath(os.path.join(config.BASE_DIR, "assets", "Poppins-Bold.ttf")).replace('\\', '/')
+    if not os.path.exists(font_path):
+        font_path = "DejaVu-Sans-Bold"
+    return font_path
 
 # ==========================================
 # PILIH VIDEO LATAR LOKAL (assets/videos)
@@ -109,29 +118,77 @@ def fit_video_to_fullscreen(video, target_duration):
     return video.set_position(("center", "center"))
 
 # ==========================================
-# PEMBUATAN TEXT CLIP (TEKNIK 1: BLACK STROKE)
+# PEMBUATAN TEXT CLIP DENGAN DROP-SHADOW 3D
 # ==========================================
-def create_text_clip(text, fontsize, color, start, duration, position, stroke_color="black", stroke_width=4, align="center"):
-    font_path = os.path.abspath(os.path.join(config.BASE_DIR, "assets", "Poppins-Bold.ttf"))
-    if not os.path.exists(font_path):
-        font_path = "DejaVu-Sans-Bold"
+def create_styled_text_pair(
+    text,
+    fontsize,
+    color,
+    start,
+    duration,
+    y_pos=None,
+    center_y=None,
+    stroke_color="black",
+    stroke_width=1.5,
+    shadow_offset=(3, 4)
+):
+    """
+    Membuat sepasang TextClip: Drop Shadow hitam di belakang + Teks Utama di depan.
+    Teknik ini menghasilkan teks viral yang sangat tajam tanpa membuat rongga huruf ('e', 'a', 'o', 'p')
+    tersumbat oleh stroke hitam tebal ImageMagick.
+    Jika center_y ditentukan, teks diposisikan tepat di titik tengah vertikal (optical center).
+    """
+    font_path = get_font_path()
+    text_clean = text.strip()
+    x_pos = int((VIDEO_WIDTH - TEXT_WIDTH) / 2)
 
-    return (
-        TextClip(
-            text,
-            fontsize=fontsize,
-            color=color,
-            stroke_color=stroke_color,
-            stroke_width=stroke_width,
-            method="caption",
-            size=(TEXT_WIDTH, None),
-            font=font_path,
-            align=align
-        )
-        .set_position(position)
+    # 1. Main Clip (untuk render teks tajam dan ukur tinggi sebenarnya)
+    main_clip = TextClip(
+        text_clean,
+        fontsize=fontsize,
+        color=color,
+        stroke_color=stroke_color,
+        stroke_width=stroke_width,
+        method="caption",
+        size=(TEXT_WIDTH, None),
+        font=font_path,
+        align="center"
+    )
+
+    if center_y is not None:
+        actual_y = int(center_y - main_clip.h / 2)
+    else:
+        actual_y = int(y_pos if y_pos is not None else 0)
+
+    # 2. Shadow Clip (drop shadow hitam tajam di layer belakang)
+    shadow_clip = TextClip(
+        text_clean,
+        fontsize=fontsize,
+        color="black",
+        font=font_path,
+        size=(TEXT_WIDTH, None),
+        method="caption",
+        align="center"
+    )
+
+    shadow_x = x_pos + shadow_offset[0]
+    shadow_y = actual_y + shadow_offset[1]
+
+    shadow_clip = (
+        shadow_clip
+        .set_position((shadow_x, shadow_y))
         .set_start(start)
         .set_duration(duration)
     )
+
+    main_clip = (
+        main_clip
+        .set_position((x_pos, actual_y))
+        .set_start(start)
+        .set_duration(duration)
+    )
+
+    return shadow_clip, main_clip
 
 # ==========================================
 # ELEMEN TATA LETAK (LAYOUT ELEMENT)
@@ -139,15 +196,12 @@ def create_text_clip(text, fontsize, color, start, duration, position, stroke_co
 def generate_layout_elements(naskah, timings):
     clips = []
     total_dur = timings["total_duration"]
+    font_path = get_font_path()
 
-    font_path = os.path.abspath(os.path.join(config.BASE_DIR, "assets", "Poppins-Bold.ttf"))
-    if not os.path.exists(font_path):
-        font_path = "DejaVu-Sans-Bold"
-
-    # 1. BADGE "KENAPA YA?" (Bagian Atas Tengah)
-    BADGE_WIDTH = 180
+    # 1. BADGE "KENAPA YA?" (Pill Kuning di Safe Zone Atas)
+    BADGE_WIDTH = 190
     BADGE_HEIGHT = 42
-    BADGE_Y = 130
+    BADGE_Y = 260
 
     badge_bg = (
         ColorClip(size=(BADGE_WIDTH, BADGE_HEIGHT), color=(250, 204, 21))
@@ -164,40 +218,45 @@ def generate_layout_elements(naskah, timings):
     )
     clips.extend([("badge_bg", badge_bg), ("badge_text", badge_text)])
 
-    # 2. JUDUL PERMANEN (Atas, Rata Tengah, Stroke Hitam Tebal)
-    title_text = naskah.get("title", "").strip()
-    TITLE_Y = BADGE_Y + BADGE_HEIGHT + 20  # Y = 192
+    # 2. JUDUL PERMANEN (Satu kesatuan dengan Badge, Huruf Kapital, Solid White)
+    title_text = naskah.get("title", "").strip().upper()
+    TITLE_Y = BADGE_Y + BADGE_HEIGHT + 16  # Y = 318
 
-    txt_title = create_text_clip(
+    title_shadow, title_main = create_styled_text_pair(
         title_text,
         fontsize=TITLE_FONT_SIZE,
         color="white",
         start=0,
         duration=total_dur,
-        position=("center", TITLE_Y),
+        y_pos=TITLE_Y,
         stroke_color="black",
-        stroke_width=4,
-        align="center"
+        stroke_width=1.5
     )
-    clips.append(("title", txt_title))
+    clips.extend([("title_shadow", title_shadow), ("title_main", title_main)])
 
-    # 3. SUBTITLE SCENES (Tengah Layar - Tepat di Safe Zone)
-    # Penonton fokus ke sini, dan bebas dari tombol-tombol UI YouTube di bawah
-    SCENE_Y = 570
+    # 3. SUBTITLE SCENES (Tepat di Titik Pusat Fokus Y = 620)
+    # Teks besar, huruf kapital, sinkronisasi 1:1, dan aman dari UI YouTube di bawah
+    OPTICAL_CENTER_Y = 620
 
     for sc in timings["scene_timings"]:
-        txt_scene = create_text_clip(
-            sc["text"],
+        sc_text = sc["text"].strip().upper()
+        if not sc_text:
+            continue
+
+        sc_shadow, sc_main = create_styled_text_pair(
+            sc_text,
             fontsize=SCENE_FONT_SIZE,
             color="white",
             start=sc["start"],
             duration=sc["duration"],
-            position=("center", SCENE_Y),
+            center_y=OPTICAL_CENTER_Y,
             stroke_color="black",
-            stroke_width=5,
-            align="center"
+            stroke_width=1.5
         )
-        clips.append((sc["name"], txt_scene))
+        clips.extend([
+            (f"{sc['name']}_shadow", sc_shadow),
+            (f"{sc['name']}_main", sc_main)
+        ])
 
     return clips
 
