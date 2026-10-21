@@ -1,0 +1,1153 @@
+name: Motivasi Sarkas Render
+
+on:
+  schedule:
+    # 6x dalam 24 jam (UTC = WIB - 7 jam)
+    - cron: '0 0,4,10,13 * * *'   # 00:00 (07:00 WIB), 04:00 (11:00 WIB), 10:00 (17:00 WIB), 13:00 (20:00 WIB)
+    - cron: '30 6,15 * * *'        # 06:30 (13:30 WIB), 15:30 (22:30 WIB)
+  repository_dispatch:
+    types:
+      - render_video
+      - upload_youtube
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  actions: read
+
+jobs:
+
+  # ==========================================================
+  # RENDER VIDEO
+  # ==========================================================
+
+  render-video:
+
+    if: github.event.action == 'render_video' || github.event_name == 'schedule' || github.event_name == 'workflow_dispatch'
+
+    runs-on: ubuntu-latest
+
+    env:
+      TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+      CHAT_ID: ${{ github.event.client_payload.chat_id || secrets.TELEGRAM_CHAT_ID || secrets.CHAT_ID }}
+
+      TOPIK: ${{ github.event.client_payload.topik }}
+      API_KEY: ${{ github.event.client_payload.api_key || secrets.GEMINI_API_KEY }}
+      MODEL_PILIHAN: ${{ github.event.client_payload.model_pilihan || 'gemini-2.5-flash' }}
+
+    steps:
+
+      # ======================================================
+      # CHECKOUT
+      # ======================================================
+
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      # ======================================================
+      # PYTHON
+      # ======================================================
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      # ======================================================
+      # SHOW RUNNER RESOURCES
+      # ======================================================
+
+      - name: Show runner resources
+        run: |
+          echo "===================================="
+          echo "       GITHUB RENDER RUNNER"
+          echo "===================================="
+          echo ""
+          echo "CPU:"
+          nproc
+          echo ""
+          echo "MEMORY:"
+          free -h
+          echo ""
+          echo "DISK:"
+          df -h .
+          echo ""
+          echo "PYTHON:"
+          python --version
+
+      # ======================================================
+      # RANDOM SCHEDULE JITTER (6X DALAM 24 JAM)
+      # ======================================================
+
+      - name: Apply human-like random schedule jitter
+        if: github.event_name == 'schedule'
+        shell: bash
+        run: |
+          echo "===================================="
+          echo "    RANDOM SCHEDULE JITTER"
+          echo "===================================="
+          # Jeda acak 0 - 2700 detik (0 sampai 45 menit)
+          DELAY=$((RANDOM % 2700))
+          MINUTES=$((DELAY / 60))
+          SECONDS=$((DELAY % 60))
+          echo "Menunggu jeda acak: ${MINUTES} menit ${SECONDS} detik (${DELAY}s)..."
+          sleep $DELAY
+          echo "Jeda selesai. Memulai pembuatan video pada $(date)"
+
+      # ======================================================
+      # PROTECT API KEY
+      # ======================================================
+
+      - name: Protect runtime API key
+        shell: bash
+        run: |
+          if [ -z "$API_KEY" ]; then
+            echo "❌ API Key Gemini tidak diterima."
+            exit 1
+          fi
+
+          echo "::add-mask::$API_KEY"
+          echo "✅ Gemini API Key diterima."
+
+      # ======================================================
+      # VALIDATE PARAMETERS
+      # ======================================================
+
+      - name: Validate render parameters
+        shell: bash
+        run: |
+          echo "===================================="
+          echo "       RENDER PARAMETERS"
+          echo "===================================="
+
+          if [ -z "$MODEL_PILIHAN" ]; then
+            echo "❌ Model Gemini kosong."
+            exit 1
+          fi
+
+          if [ -n "$CHAT_ID" ] && [ -z "$TELEGRAM_BOT_TOKEN" ]; then
+            echo "❌ TELEGRAM_BOT_TOKEN belum diset."
+            exit 1
+          fi
+
+          echo "Topik : ${TOPIK:-[AUTO GENERATE / BACA FILE]}"
+          echo "Model : $MODEL_PILIHAN"
+          echo "Gemini API Key : [MASKED]"
+          echo "Telegram Chat ID : ${CHAT_ID:-[NONE]}"
+
+      # ======================================================
+      # SYSTEM DEPENDENCIES
+      # ======================================================
+
+      - name: Install system dependencies
+        run: |
+          sudo apt-get update
+
+          sudo apt-get install -y \
+            ffmpeg \
+            imagemagick \
+            fonts-dejavu
+
+      # ======================================================
+      # IMAGEMAGICK
+      # ======================================================
+
+      - name: Configure ImageMagick for MoviePy
+        run: |
+          echo "===================================="
+          echo "   IMAGEMAGICK CONFIGURATION"
+          echo "===================================="
+
+          convert --version | head -n 3
+
+          POLICY_FILES=$(find /etc/ImageMagick* -name policy.xml 2>/dev/null || true)
+
+          if [ -z "$POLICY_FILES" ]; then
+            echo "❌ policy.xml tidak ditemukan."
+            exit 1
+          fi
+
+          for POLICY_FILE in $POLICY_FILES; do
+            echo "Processing: $POLICY_FILE"
+
+            sudo sed -i \
+              's#<policy domain="path" rights="none" pattern="@\*"/>#<!-- MoviePy @ path restriction disabled -->#g' \
+              "$POLICY_FILE"
+          done
+
+          echo ""
+          echo "Remaining path policies:"
+
+          for POLICY_FILE in $POLICY_FILES; do
+            grep -n 'domain="path"' "$POLICY_FILE" || true
+          done
+
+      # ======================================================
+      # PYTHON DEPENDENCIES
+      # ======================================================
+
+      - name: Install Python dependencies
+        run: |
+          python -m pip install --upgrade pip
+
+          pip install \
+            "numpy<2" \
+            moviepy==1.0.3 \
+            pillow \
+            requests \
+            python-dotenv \
+            google-generativeai \
+            edge-tts
+
+      # ======================================================
+      # VERIFY IMPORTS
+      # ======================================================
+
+      - name: Verify project imports
+        run: |
+          python - <<'PY'
+          import moviepy
+          import PIL
+          import requests
+          import dotenv
+          import google.generativeai
+
+          print("MoviePy :", moviepy.__version__)
+          print("Pillow  :", PIL.__version__)
+          print("Requests: OK")
+          print("Dotenv  : OK")
+          print("Gemini  : OK")
+          PY
+
+      # ======================================================
+      # RENDER VIDEO
+      # ======================================================
+
+      - name: Render video
+        shell: bash
+        run: |
+          python - <<'PY'
+          import json
+          import os
+
+          from ai_generator import generate_naskah, get_topic
+          from video_engine import render_final_video
+
+          api_key = os.environ.get("API_KEY", "").strip()
+          model_pilihan = os.environ.get("MODEL_PILIHAN", "gemini-2.5-flash").strip()
+          topik = os.environ.get("TOPIK", "").strip()
+
+          print("")
+          print("====================================")
+          print("          KENAPAYA? RENDER")
+          print("====================================")
+
+          # Jika topik kosong (misal dijalankan oleh Scheduler), ambil otomatis sesuai config (Opsi A / B)
+          if not topik:
+              print("Topik kosong, mengambil topik otomatis sesuai konfigurasi...")
+              topik = get_topic(api_key=api_key, model_name=model_pilihan)
+
+          print("")
+          print("Topik:")
+          print(topik)
+
+          print("")
+          print("Model:")
+          print(model_pilihan)
+
+          # ==================================================
+          # 1. GENERATE NASKAH
+          # ==================================================
+
+          print("")
+          print("1. Menghubungi Gemini AI...")
+
+          naskah_json = generate_naskah(
+              topik,
+              api_key=api_key,
+              model_name=model_pilihan
+          )
+
+          if not isinstance(naskah_json, dict):
+              raise RuntimeError(
+                  "Response Gemini bukan object JSON."
+              )
+
+          if "error" in naskah_json:
+              raise RuntimeError(
+                  f"Gemini error: {naskah_json['error']}"
+              )
+
+          print("")
+          print("✅ Naskah berhasil dibuat.")
+
+          print("")
+          print("====================================")
+          print("NASKAH")
+          print("====================================")
+
+          print(f"Title  : {naskah_json.get('title')}")
+          scenes = naskah_json.get("scenes", [])
+          for idx, sc in enumerate(scenes, 1):
+              print(f"Scene {idx}: {sc}")
+
+          # ==================================================
+          # 2. GENERATE YOUTUBE METADATA
+          # ==================================================
+
+          print("")
+          print("2. Membuat metadata YouTube...")
+
+          scenes_text = "\n".join(scenes)
+
+          genai_prompt = f"""
+          Kamu adalah YouTube content strategist untuk channel
+          "kenapaYa?".
+
+          Buat metadata YouTube berdasarkan TOPIK dan NASKAH
+          yang benar-benar digunakan untuk membuat video.
+
+          TOPIK:
+          {topik}
+
+          NASKAH:
+          Judul:
+          {naskah_json.get("title", "")}
+
+          Isi Naskah:
+          {scenes_text}
+
+          Visual Context:
+          {naskah_json.get("visual_context", "")}
+
+          Aturan:
+
+          1. Title harus sama persis dengan title dari NASKAH.
+          2. Description harus menjelaskan isi video.
+          3. Description harus terasa natural dan relatable.
+          4. Pertahankan gaya bahasa: santai, cerdas, edukatif, dan memicu penasaran.
+          5. Jangan membuat fakta yang tidak ada di naskah.
+          6. Jangan membahas proses pembuatan video.
+          7. Jangan memasukkan source.
+          8. Jangan memasukkan URL.
+          9. Hashtag harus relevan.
+          10. Selalu sertakan:
+              #k3napaYa
+              #shorts
+              #edukasi
+          11. Jangan memasukkan hashtag yang tidak relevan.
+          12. Description jangan terlalu panjang (maksimal 3 paragraf singkat).
+          13. Jangan menggunakan markdown.
+          14. Output HARUS JSON VALID.
+          15. Jangan memberikan penjelasan tambahan.
+
+          Format:
+
+          {{
+            "title": "...",
+            "description": "...",
+            "hashtags": [
+              "#k3napaYa",
+              "#shorts",
+              "#edukasi"
+            ]
+          }}
+          """
+
+          import google.generativeai as genai
+
+          genai.configure(
+              api_key=api_key.strip()
+          )
+
+          metadata_model = genai.GenerativeModel(
+              model_pilihan
+          )
+
+          metadata_response = metadata_model.generate_content(
+              genai_prompt
+          )
+
+          metadata_text = (
+              getattr(
+                  metadata_response,
+                  "text",
+                  ""
+              ) or ""
+          ).strip()
+
+          if not metadata_text:
+              raise RuntimeError(
+                  "Gemini tidak menghasilkan metadata YouTube."
+              )
+
+          metadata_text = (
+              metadata_text
+              .replace("```json", "")
+              .replace("```", "")
+              .strip()
+          )
+
+          try:
+              youtube_metadata = json.loads(
+                  metadata_text
+              )
+
+          except json.JSONDecodeError:
+
+              decoder = json.JSONDecoder()
+
+              start = metadata_text.find("{")
+
+              if start == -1:
+                  raise RuntimeError(
+                      "Response metadata YouTube bukan JSON valid."
+                  )
+
+              youtube_metadata, _ = (
+                  decoder.raw_decode(
+                      metadata_text[start:]
+                  )
+              )
+
+          # ==================================================
+          # 3. VALIDASI METADATA
+          # ==================================================
+
+          if not isinstance(
+              youtube_metadata,
+              dict
+          ):
+              raise RuntimeError(
+                  "Metadata YouTube bukan object JSON."
+              )
+
+          required_fields = [
+              "title",
+              "description",
+              "hashtags"
+          ]
+
+          for field in required_fields:
+
+              if field not in youtube_metadata:
+                  raise RuntimeError(
+                      f"Metadata YouTube tidak memiliki field: {field}"
+                  )
+
+          youtube_metadata["title"] = (
+              naskah_json["title"]
+          )
+
+          if not isinstance(
+              youtube_metadata["description"],
+              str
+          ):
+              raise RuntimeError(
+                  "Description YouTube harus berupa teks."
+              )
+
+          if not isinstance(
+              youtube_metadata["hashtags"],
+              list
+          ):
+              raise RuntimeError(
+                  "Hashtags YouTube harus berupa array."
+              )
+
+          hashtags = []
+
+          for hashtag in youtube_metadata["hashtags"]:
+
+              if not isinstance(
+                  hashtag,
+                  str
+              ):
+                  continue
+
+              hashtag = hashtag.strip()
+
+              if not hashtag:
+                  continue
+
+              if not hashtag.startswith("#"):
+                  hashtag = "#" + hashtag
+
+              hashtags.append(
+                  hashtag
+              )
+
+          hashtags = list(
+              dict.fromkeys(
+                  hashtags
+              )
+          )
+
+          if "#k3napaYa" not in hashtags:
+              hashtags.insert(
+                  0,
+                  "#k3napaYa"
+              )
+
+          if "#shorts" not in hashtags:
+              hashtags.append(
+                  "#shorts"
+              )
+
+          youtube_metadata["hashtags"] = hashtags
+
+          print("")
+          print("====================================")
+          print("YOUTUBE METADATA")
+          print("====================================")
+
+          print(
+              f"Title       : "
+              f"{youtube_metadata['title']}"
+          )
+
+          print(
+              f"Description : "
+              f"{youtube_metadata['description']}"
+          )
+
+          print(
+              f"Hashtags    : "
+              f"{youtube_metadata['hashtags']}"
+          )
+
+          # ==================================================
+          # 4. SIMPAN METADATA
+          # ==================================================
+
+          os.makedirs(
+              "temp",
+              exist_ok=True
+          )
+
+          youtube_metadata_path = os.path.join(
+              "temp",
+              "youtube.json"
+          )
+
+          with open(
+              youtube_metadata_path,
+              "w",
+              encoding="utf-8"
+          ) as metadata_file:
+
+              json.dump(
+                  youtube_metadata,
+                  metadata_file,
+                  ensure_ascii=False,
+                  indent=2
+              )
+
+          print("")
+          print(
+              f"✅ youtube.json dibuat: "
+              f"{youtube_metadata_path}"
+          )
+
+          # ==================================================
+          # 5. SIMPAN RENDER RESULT
+          # ==================================================
+
+          result_path = os.path.join(
+              "temp",
+              "render_result.json"
+          )
+
+          with open(
+              result_path,
+              "w",
+              encoding="utf-8"
+          ) as result_file:
+
+              json.dump(
+                  {
+                      "naskah": naskah_json
+                  },
+                  result_file,
+                  ensure_ascii=False,
+                  indent=2
+              )
+
+          # ==================================================
+          # 6. RENDER VIDEO
+          # ==================================================
+
+          print("")
+          print("3. Menyerahkan naskah ke Mesin Video...")
+
+          output = render_final_video(
+              naskah_json
+          )
+
+          if not output:
+              raise RuntimeError(
+                  "render_final_video() "
+                  "mengembalikan None."
+              )
+
+          if not os.path.exists(output):
+              raise RuntimeError(
+                  f"File output tidak ditemukan: {output}"
+              )
+
+          file_size = os.path.getsize(
+              output
+          )
+
+          print("")
+          print("====================================")
+          print("       VIDEO SELESAI DIBUAT")
+          print("====================================")
+
+          print(
+              f"Output : {output}"
+          )
+
+          print(
+              f"Size   : "
+              f"{file_size / 1024 / 1024:.2f} MB"
+          )
+
+          if file_size < 1000:
+              raise RuntimeError(
+                  "Video output terlalu kecil."
+              )
+
+          print("")
+          print("✅ RENDER BERHASIL.")
+
+          PY
+
+      # ======================================================
+      # GENERATE YOUTUBE THUMBNAIL
+      # ======================================================
+
+      - name: Generate YouTube thumbnail
+        shell: bash
+        run: |
+          echo "===================================="
+          echo "       GENERATE YOUTUBE THUMBNAIL"
+          echo "===================================="
+
+          VIDEO_PATH=$(find temp -maxdepth 1 -type f -name 'final_*.mp4' | head -n 1)
+
+          if [ -z "$VIDEO_PATH" ]; then
+            echo "❌ Video hasil render tidak ditemukan."
+            exit 1
+          fi
+
+          echo "Video : $VIDEO_PATH"
+
+          # Mengambil frame pertama dari video.
+          # Frame pertama adalah opening/title Motivasi Sarkas.
+          ffmpeg -y \
+            -i "$VIDEO_PATH" \
+            -frames:v 1 \
+            -q:v 2 \
+            temp/thumbnail.jpg
+
+          if [ ! -s "temp/thumbnail.jpg" ]; then
+            echo "❌ Thumbnail gagal dibuat."
+            exit 1
+          fi
+
+          echo "✅ Thumbnail berhasil dibuat:"
+          ls -lh temp/thumbnail.jpg
+
+      # ======================================================
+      # SHOW GENERATED FILES
+      # ======================================================
+
+      - name: Show generated files
+        run: |
+          echo "===================================="
+          echo "       HASIL RENDER"
+          echo "===================================="
+
+          find temp \
+            -maxdepth 1 \
+            -type f \
+            -printf "%p - %s bytes\n"
+
+          echo ""
+          echo "MEMORY:"
+          free -h
+
+      # ======================================================
+      # SEND RESULT TO TELEGRAM
+      # ======================================================
+
+      - name: Send result to Telegram
+        if: ${{ github.event.client_payload.chat_id != '' }}
+        run: |
+          python send_to_telegram.py
+
+      # ======================================================
+      # UPLOAD RENDERED ARTIFACT
+      # ======================================================
+
+      - name: Upload rendered video
+        uses: actions/upload-artifact@v4
+        with:
+          name: motivasi-sarkas-video-${{ github.run_id }}
+          path: |
+            temp/final_*.mp4
+            temp/thumbnail.jpg
+            temp/render_result.json
+            temp/youtube.json
+          if-no-files-found: error
+          retention-days: 1
+
+      # ======================================================
+      # CLOUDFLARE RENDER CALLBACK
+      # ======================================================
+
+      - name: Notify Cloudflare render complete
+        if: ${{ always() }}
+        shell: bash
+        env:
+          CLOUDFLARE_CALLBACK_URL: ${{ secrets.CLOUDFLARE_CALLBACK_URL }}
+          JOB_CALLBACK_SECRET: ${{ secrets.JOB_CALLBACK_SECRET }}
+          CHAT_ID: ${{ github.event.client_payload.chat_id }}
+          RUN_ID: ${{ github.run_id }}
+          JOB_STATUS: ${{ job.status }}
+        run: |
+          if [ -z "$CLOUDFLARE_CALLBACK_URL" ] || [ -z "$JOB_CALLBACK_SECRET" ] || [ -z "$CHAT_ID" ]; then
+            echo "⚠️ Cloudflare callback dilewati karena konfigurasi belum lengkap."
+            exit 0
+          fi
+
+          if [ "$JOB_STATUS" = "success" ]; then
+            STATUS="success"
+          else
+            STATUS="failed"
+          fi
+
+          curl --fail-with-body --silent --show-error \
+            -X POST \
+            "${CLOUDFLARE_CALLBACK_URL}/internal/job-complete" \
+            -H "Content-Type: application/json" \
+            -H "X-Callback-Secret: ${JOB_CALLBACK_SECRET}" \
+            --data "{
+              \"chat_id\": \"${CHAT_ID}\",
+              \"job_type\": \"render\",
+              \"status\": \"${STATUS}\",
+              \"run_id\": \"${RUN_ID}\"
+            }" \
+            || echo "⚠️ Gagal mengirim callback render ke Cloudflare."
+
+          echo "✅ Cloudflare render callback selesai."
+
+      # ======================================================
+      # RENDER COMPLETED
+      # ======================================================
+
+      - name: Render completed
+        run: |
+          echo ""
+          echo "===================================="
+          echo "       JOB SELESAI"
+          echo "===================================="
+
+      # ======================================================
+      # RENDER FAILURE
+      # ======================================================
+
+      - name: Notify render failure to Telegram
+        if: ${{ always() && github.event.client_payload.chat_id != '' && job.status != 'success' }}
+        shell: bash
+        env:
+          TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+          CHAT_ID: ${{ github.event.client_payload.chat_id }}
+          JOB_STATUS: ${{ job.status }}
+          GITHUB_RUN_URL: https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}
+        run: |
+          if [ -z "$TELEGRAM_BOT_TOKEN" ] || [ -z "$CHAT_ID" ]; then
+            echo "Telegram failure notification skipped: token/chat_id unavailable."
+            exit 0
+          fi
+
+          if [ "$JOB_STATUS" = "cancelled" ]; then
+            MESSAGE=$(printf '%s\n\n%s\n%s' \
+              "⚠️ PROSES RENDER DIBATALKAN" \
+              "GitHub Actions menghentikan proses render." \
+              "Detail: $GITHUB_RUN_URL")
+          else
+            MESSAGE=$(printf '%s\n\n%s\n%s' \
+              "❌ PROSES RENDER GAGAL" \
+              "GitHub Actions mengalami error saat proses render atau pengiriman hasil." \
+              "Detail: $GITHUB_RUN_URL")
+          fi
+
+          curl --fail-with-body --silent --show-error \
+            -X POST \
+            "https://api.telegram.org/bot${TELEGRAM_BOT_TOKEN}/sendMessage" \
+            --data-urlencode "chat_id=${CHAT_ID}" \
+            --data-urlencode "text=${MESSAGE}"
+
+          echo "✅ Notifikasi error render dikirim ke Telegram."
+
+
+  # ==========================================================
+  # UPLOAD YOUTUBE
+  # ==========================================================
+
+  upload-video:
+
+    if: github.event.action == 'upload_youtube'
+
+    runs-on: ubuntu-latest
+
+    env:
+      TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+      CHAT_ID: ${{ github.event.client_payload.chat_id }}
+      RENDER_RUN_ID: ${{ github.event.client_payload.run_id }}
+
+      YOUTUBE_CREDENTIALS_JSON: ${{ secrets.YOUTUBE_CREDENTIALS_JSON }}
+      YOUTUBE_TOKEN_JSON: ${{ secrets.YOUTUBE_TOKEN_JSON }}
+
+    steps:
+
+      # ======================================================
+      # CHECKOUT
+      # ======================================================
+
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      # ======================================================
+      # VALIDATE UPLOAD PARAMETERS
+      # ======================================================
+
+      - name: Validate upload parameters
+        shell: bash
+        run: |
+          if [ -z "$CHAT_ID" ]; then
+            echo "❌ CHAT_ID tidak diterima."
+            exit 1
+          fi
+
+          if [ -z "$RENDER_RUN_ID" ]; then
+            echo "❌ RENDER_RUN_ID tidak diterima."
+            exit 1
+          fi
+
+          if [ -z "$TELEGRAM_BOT_TOKEN" ]; then
+            echo "❌ TELEGRAM_BOT_TOKEN belum diset."
+            exit 1
+          fi
+
+          if [ -z "$YOUTUBE_CREDENTIALS_JSON" ]; then
+            echo "❌ YOUTUBE_CREDENTIALS_JSON belum diset."
+            exit 1
+          fi
+
+          if [ -z "$YOUTUBE_TOKEN_JSON" ]; then
+            echo "❌ YOUTUBE_TOKEN_JSON belum diset."
+            exit 1
+          fi
+
+          echo "Chat ID : $CHAT_ID"
+          echo "Render Run ID : $RENDER_RUN_ID"
+          echo "Telegram Bot Token : [MASKED]"
+          echo "YouTube credentials : [MASKED]"
+          echo "YouTube token : [MASKED]"
+
+      # ======================================================
+      # PYTHON
+      # ======================================================
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      # ======================================================
+      # YOUTUBE DEPENDENCIES
+      # ======================================================
+
+      - name: Install YouTube dependencies
+        run: |
+          python -m pip install --upgrade pip
+
+          pip install \
+            requests \
+            google-api-python-client \
+            google-auth \
+            google-auth-httplib2 \
+            google-auth-oauthlib
+
+      # ======================================================
+      # VERIFY YOUTUBE IMPORTS
+      # ======================================================
+
+      - name: Verify YouTube imports
+        run: |
+          python -c "import google.auth; import google_auth_oauthlib; import googleapiclient; print('google-auth: OK'); print('google-auth-oauthlib: OK'); print('google-api-python-client: OK')"
+
+      # ======================================================
+      # DOWNLOAD RENDER ARTIFACT
+      # ======================================================
+
+      - name: Download render artifact
+        uses: actions/download-artifact@v4
+        with:
+          run-id: ${{ github.event.client_payload.run_id }}
+          repository: ${{ github.repository }}
+          github-token: ${{ github.token }}
+          path: upload_input
+
+      # ======================================================
+      # PREPARE YOUTUBE CREDENTIALS
+      # ======================================================
+
+      - name: Prepare YouTube credentials
+        shell: bash
+        run: |
+          mkdir -p secrets
+
+          printf '%s' \
+            "$YOUTUBE_CREDENTIALS_JSON" \
+            > secrets/credentials.json
+
+          printf '%s' \
+            "$YOUTUBE_TOKEN_JSON" \
+            > secrets/token.json
+
+          python -c \
+            "import json; json.load(open('secrets/credentials.json', encoding='utf-8')); json.load(open('secrets/token.json', encoding='utf-8')); print('✅ YouTube credential JSON valid.')"
+
+      # ======================================================
+      # PREPARE UPLOAD INPUT
+      # ======================================================
+
+      - name: Prepare upload input
+        shell: bash
+        run: |
+          VIDEO_PATH=$(find upload_input -type f -name '*.mp4' | head -n 1)
+
+          YOUTUBE_JSON=$(find upload_input -type f -name 'youtube.json' | head -n 1)
+
+          THUMBNAIL_PATH=$(find upload_input -type f -name 'thumbnail.jpg' | head -n 1)
+
+          if [ -z "$VIDEO_PATH" ]; then
+            echo "❌ File video tidak ditemukan di artifact."
+            exit 1
+          fi
+
+          if [ -z "$YOUTUBE_JSON" ]; then
+            echo "❌ youtube.json tidak ditemukan di artifact."
+            exit 1
+          fi
+
+          # Thumbnail SEKARANG WAJIB.
+          # Jangan lanjut upload bila thumbnail tidak tersedia.
+          if [ -z "$THUMBNAIL_PATH" ]; then
+            echo "❌ thumbnail.jpg tidak ditemukan di artifact."
+            echo "Upload YouTube dihentikan agar video tidak ter-upload tanpa thumbnail."
+            exit 1
+          fi
+
+          if [ ! -s "$THUMBNAIL_PATH" ]; then
+            echo "❌ thumbnail.jpg kosong."
+            exit 1
+          fi
+
+          echo "VIDEO_PATH=$VIDEO_PATH" >> "$GITHUB_ENV"
+          echo "YOUTUBE_JSON=$YOUTUBE_JSON" >> "$GITHUB_ENV"
+          echo "THUMBNAIL_PATH=$THUMBNAIL_PATH" >> "$GITHUB_ENV"
+
+          echo ""
+          echo "===================================="
+          echo "       UPLOAD INPUT"
+          echo "===================================="
+
+          echo "Video     : $VIDEO_PATH"
+          echo "Metadata  : $YOUTUBE_JSON"
+          echo "Thumbnail : $THUMBNAIL_PATH"
+
+          echo ""
+          echo "Thumbnail file:"
+          ls -lh "$THUMBNAIL_PATH"
+
+      # ======================================================
+      # UPLOAD TO YOUTUBE
+      #
+      # youtube_uploader.py:
+      # 1. upload video
+      # 2. mendapatkan video_id
+      # 3. set custom thumbnail
+      # 4. menulis thumbnail_status
+      #
+      # Wrapper di bawah memastikan workflow GAGAL
+      # bila thumbnail belum berhasil diset.
+      # ======================================================
+
+      - name: Upload to YouTube
+        id: upload_youtube
+        shell: bash
+        run: |
+          python youtube_uploader.py
+
+          if [ ! -f "youtube_upload_result.json" ]; then
+            echo "❌ youtube_upload_result.json tidak ditemukan."
+            exit 1
+          fi
+
+          THUMBNAIL_STATUS=$(python - <<'PY'
+          import json
+
+          with open(
+              "youtube_upload_result.json",
+              "r",
+              encoding="utf-8"
+          ) as f:
+              data = json.load(f)
+
+          print(
+              data.get(
+                  "thumbnail_status",
+                  ""
+              )
+          )
+          PY
+          )
+
+          VIDEO_ID=$(python - <<'PY'
+          import json
+
+          with open(
+              "youtube_upload_result.json",
+              "r",
+              encoding="utf-8"
+          ) as f:
+              data = json.load(f)
+
+          print(
+              data.get(
+                  "video_id",
+                  ""
+              )
+          )
+          PY
+          )
+
+          YOUTUBE_URL=$(python - <<'PY'
+          import json
+
+          with open(
+              "youtube_upload_result.json",
+              "r",
+              encoding="utf-8"
+          ) as f:
+              data = json.load(f)
+
+          print(
+              data.get(
+                  "youtube_url",
+                  ""
+              )
+          )
+          PY
+          )
+
+          echo ""
+          echo "===================================="
+          echo "       YOUTUBE UPLOAD RESULT"
+          echo "===================================="
+
+          echo "Video ID        : ${VIDEO_ID:-[EMPTY]}"
+          echo "YouTube URL     : ${YOUTUBE_URL:-[EMPTY]}"
+          echo "Thumbnail status: ${THUMBNAIL_STATUS:-[EMPTY]}"
+
+          if [ -z "$VIDEO_ID" ]; then
+            echo "❌ Video ID tidak ditemukan."
+            exit 1
+          fi
+
+          if [ "$THUMBNAIL_STATUS" != "success" ]; then
+            echo ""
+            echo "❌ CUSTOM THUMBNAIL BELUM BERHASIL DISET."
+            echo ""
+            echo "Status: ${THUMBNAIL_STATUS:-[EMPTY]}"
+            echo ""
+            echo "Video mungkin sudah berhasil di-upload,"
+            echo "tetapi workflow TIDAK akan dianggap berhasil"
+            echo "karena thumbnail belum berhasil diterapkan."
+            exit 1
+          fi
+
+          echo ""
+          echo "✅ VIDEO BERHASIL DI-UPLOAD."
+          echo "✅ CUSTOM THUMBNAIL BERHASIL DISET."
+
+      # ======================================================
+      # SEND UPLOAD RESULT TO TELEGRAM
+      # ======================================================
+
+      - name: Send upload result to Telegram
+        if: always()
+        env:
+          CHAT_ID: ${{ github.event.client_payload.chat_id }}
+          UPLOAD_OUTCOME: ${{ steps.upload_youtube.outcome }}
+          GITHUB_RUN_URL: https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}
+        run: |
+          python send_upload_result_to_telegram.py
+
+      # ======================================================
+      # CLOUDFLARE UPLOAD CALLBACK
+      # ======================================================
+
+      - name: Notify Cloudflare upload complete
+        if: ${{ always() }}
+        shell: bash
+        env:
+          CLOUDFLARE_CALLBACK_URL: ${{ secrets.CLOUDFLARE_CALLBACK_URL }}
+          JOB_CALLBACK_SECRET: ${{ secrets.JOB_CALLBACK_SECRET }}
+          CHAT_ID: ${{ github.event.client_payload.chat_id }}
+          RUN_ID: ${{ github.event.client_payload.run_id }}
+          UPLOAD_OUTCOME: ${{ steps.upload_youtube.outcome }}
+        run: |
+          if [ -z "$CLOUDFLARE_CALLBACK_URL" ] || [ -z "$JOB_CALLBACK_SECRET" ] || [ -z "$CHAT_ID" ]; then
+            echo "⚠️ Cloudflare callback dilewati karena konfigurasi belum lengkap."
+            exit 0
+          fi
+
+          if [ "$UPLOAD_OUTCOME" = "success" ]; then
+            STATUS="success"
+          else
+            STATUS="failed"
+          fi
+
+          curl --fail-with-body --silent --show-error \
+            -X POST \
+            "${CLOUDFLARE_CALLBACK_URL}/internal/job-complete" \
+            -H "Content-Type: application/json" \
+            -H "X-Callback-Secret: ${JOB_CALLBACK_SECRET}" \
+            --data "{
+              \"chat_id\": \"${CHAT_ID}\",
+              \"job_type\": \"upload\",
+              \"status\": \"${STATUS}\",
+              \"run_id\": \"${RUN_ID}\"
+            }" \
+            || echo "⚠️ Gagal mengirim callback upload ke Cloudflare."
+
+          echo "✅ Cloudflare upload callback selesai."
+
+      # ======================================================
+      # CLEANUP
+      # ======================================================
+
+      - name: Cleanup YouTube secrets
+        if: always()
+        shell: bash
+        run: |
+          rm -f secrets/credentials.json
+          rm -f secrets/token.json
+
+          echo "✅ Temporary YouTube credential files removed."
