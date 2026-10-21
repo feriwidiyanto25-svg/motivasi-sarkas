@@ -288,62 +288,38 @@ def render_final_video(naskah):
                 duration=total_duration
             ).set_position(("center", "center"))
 
-        # 3. SUSUN ELEMEN TEKS DENGAN BLACK STROKE
+        # 3. SUSUN ELEMEN TEKS DENGAN BLACK STROKE (OPTIMASI DIRECT COMPOSITE)
         layout_elements = generate_layout_elements(naskah, timings)
-        composed_segments = []
 
-        print("Menggabungkan layer teks dan video...")
-        current_time = 0.0
-        while current_time < total_duration:
-            segment_dur = min(1.0, total_duration - current_time)
+        print("Menggabungkan layer teks dan video secara langsung...")
+        all_layers = [bg_video]
+        for name, clip in layout_elements:
+            all_layers.append(clip)
 
-            active_clips = [
-                bg_video.subclip(current_time, current_time + segment_dur).set_start(0)
-            ]
+        final_video = CompositeVideoClip(all_layers, size=(VIDEO_WIDTH, VIDEO_HEIGHT)).set_duration(total_duration)
 
-            for name, clip in layout_elements:
-                clip_start = clip.start
-                clip_end = clip.start + clip.duration
-
-                if current_time < clip_end and (current_time + segment_dur) > clip_start:
-                    rel_start = max(0.0, clip_start - current_time)
-                    rel_end = min(segment_dur, clip_end - current_time)
-                    rel_dur = rel_end - rel_start
-
-                    if rel_dur > 0:
-                        active_clips.append(clip.set_start(rel_start).set_duration(rel_dur))
-
-            segment = CompositeVideoClip(active_clips, size=(VIDEO_WIDTH, VIDEO_HEIGHT)).set_duration(segment_dur)
-            composed_segments.append(segment)
-
-            # Ekstrak thumbnail dari detik ke-0.5
-            if current_time == 0.0:
-                os.makedirs(config.TEMP_DIR, exist_ok=True)
-                thumbnail_path = os.path.join(config.TEMP_DIR, "thumbnail.jpg")
-                try:
-                    frame = segment.get_frame(0.5)
-                    thumb_img = Image.fromarray(frame).convert("RGB")
-                    thumb_img.save(thumbnail_path, format="JPEG", quality=90, optimize=True)
-                    print("✅ Thumbnail berhasil disimpan.")
-                except Exception as e:
-                    print(f"Peringatan thumbnail: {e}")
-
-            current_time += segment_dur
-
-        final_video = concatenate_videoclips(composed_segments, method="chain")
-        final_video = final_video.set_duration(total_duration)
+        # Ekstrak thumbnail dari detik ke-0.5
+        os.makedirs(config.TEMP_DIR, exist_ok=True)
+        thumbnail_path = os.path.join(config.TEMP_DIR, "thumbnail.jpg")
+        try:
+            frame = final_video.get_frame(min(0.5, total_duration / 2))
+            thumb_img = Image.fromarray(frame).convert("RGB")
+            thumb_img.save(thumbnail_path, format="JPEG", quality=90, optimize=True)
+            print("✅ Thumbnail berhasil disimpan.")
+        except Exception as e:
+            print(f"Peringatan thumbnail: {e}")
 
         # 4. PASANG AUDIO (VOICEOVER + BGM)
         final_audio = create_composite_audio(master_voiceover_path, total_duration)
         if final_audio:
             final_video = final_video.set_audio(final_audio)
 
-        # 5. EKSPOR FILE MP4
+        # 5. EKSPOR FILE MP4 KILAT (ULTRAFAST + 4 THREADS)
         os.makedirs(config.TEMP_DIR, exist_ok=True)
         unique_id = uuid.uuid4().hex[:8]
         output_path = os.path.join(config.TEMP_DIR, f"final_{unique_id}.mp4")
 
-        print(f"\nMengekspor video Shorts ({total_duration:.2f}s)...")
+        print(f"\nMengekspor video Shorts ({total_duration:.2f}s) dengan preset ultrafast...")
         final_video.write_videofile(
             output_path,
             fps=config.VIDEO_FPS,
@@ -351,8 +327,8 @@ def render_final_video(naskah):
             bitrate="2500k",
             audio_codec="aac",
             audio_bitrate="128k",
-            preset="fast",
-            threads=2,
+            preset="ultrafast",
+            threads=4,
             logger=None
         )
 

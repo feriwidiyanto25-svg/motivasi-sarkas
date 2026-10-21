@@ -39,6 +39,13 @@ VOICEOVER_VOLUME = 1.0  # 100% suara narator
 BGM_VOLUME = 0.15       # 15% musik latar agar narasi terdengar dominan
 
 # ==============================================================================
+# OTOMATISASI UPLOAD YOUTUBE
+# ==============================================================================
+# False = Mode Review Manual: Video dikirim ke Telegram, Anda klik tombol "Upload YouTube" jika setuju.
+# True  = Mode Full Autopilot: Otomatis di-upload ke YouTube Shorts tanpa perlu klik tombol.
+AUTO_UPLOAD_YOUTUBE = os.environ.get("AUTO_UPLOAD_YOUTUBE", "false").lower() == "true"
+
+# ==============================================================================
 # KONFIGURASI TOPIK UNTUK SCHEDULER
 # ==============================================================================
 # Pilihan Mode:

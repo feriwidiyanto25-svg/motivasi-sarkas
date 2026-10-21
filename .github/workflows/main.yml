@@ -10,6 +10,15 @@ on:
       - render_video
       - upload_youtube
   workflow_dispatch:
+    inputs:
+      topik:
+        description: 'Topik video (kosongkan untuk auto-generate dari AI)'
+        required: false
+        default: ''
+      model_pilihan:
+        description: 'Model Gemini'
+        required: false
+        default: 'gemini-2.5-flash'
 
 permissions:
   contents: read
@@ -31,9 +40,9 @@ jobs:
       TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
       CHAT_ID: ${{ github.event.client_payload.chat_id || secrets.TELEGRAM_CHAT_ID || secrets.CHAT_ID }}
 
-      TOPIK: ${{ github.event.client_payload.topik }}
+      TOPIK: ${{ github.event.client_payload.topik || inputs.topik }}
       API_KEY: ${{ github.event.client_payload.api_key || secrets.GEMINI_API_KEY }}
-      MODEL_PILIHAN: ${{ github.event.client_payload.model_pilihan || 'gemini-2.5-flash' }}
+      MODEL_PILIHAN: ${{ github.event.client_payload.model_pilihan || inputs.model_pilihan || 'gemini-2.5-flash' }}
 
     steps:
 
@@ -86,8 +95,8 @@ jobs:
           echo "===================================="
           echo "    RANDOM SCHEDULE JITTER"
           echo "===================================="
-          # Jeda acak 0 - 2700 detik (0 sampai 45 menit)
-          DELAY=$((RANDOM % 2700))
+          # Jeda acak 0 - 600 detik (0 sampai 10 menit)
+          DELAY=$((RANDOM % 600))
           MINUTES=$((DELAY / 60))
           SECONDS=$((DELAY % 60))
           echo "Menunggu jeda acak: ${MINUTES} menit ${SECONDS} detik (${DELAY}s)..."
@@ -683,7 +692,7 @@ jobs:
       # ======================================================
 
       - name: Send result to Telegram
-        if: ${{ github.event.client_payload.chat_id != '' }}
+        if: ${{ env.CHAT_ID != '' }}
         run: |
           python send_to_telegram.py
 
@@ -713,7 +722,7 @@ jobs:
         env:
           CLOUDFLARE_CALLBACK_URL: ${{ secrets.CLOUDFLARE_CALLBACK_URL }}
           JOB_CALLBACK_SECRET: ${{ secrets.JOB_CALLBACK_SECRET }}
-          CHAT_ID: ${{ github.event.client_payload.chat_id }}
+          CHAT_ID: ${{ env.CHAT_ID }}
           RUN_ID: ${{ github.run_id }}
           JOB_STATUS: ${{ job.status }}
         run: |
@@ -759,11 +768,11 @@ jobs:
       # ======================================================
 
       - name: Notify render failure to Telegram
-        if: ${{ always() && github.event.client_payload.chat_id != '' && job.status != 'success' }}
+        if: ${{ always() && env.CHAT_ID != '' && job.status != 'success' }}
         shell: bash
         env:
           TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
-          CHAT_ID: ${{ github.event.client_payload.chat_id }}
+          CHAT_ID: ${{ env.CHAT_ID }}
           JOB_STATUS: ${{ job.status }}
           GITHUB_RUN_URL: https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}
         run: |
