@@ -2,9 +2,26 @@ name: Motivasi Sarkas Render
 
 on:
   schedule:
-    # 6x dalam 24 jam (UTC = WIB - 7 jam)
-    - cron: '0 0,4,10,13 * * *'   # 00:00 (07:00 WIB), 04:00 (11:00 WIB), 10:00 (17:00 WIB), 13:00 (20:00 WIB)
-    - cron: '30 6,15 * * *'        # 06:30 (13:30 WIB), 15:30 (22:30 WIB)
+    # =========================================================================
+    # JADWAL 6X SEHARI (RENTANG 06:47 - 21:30 WIB, JEDA DINAMIS NON-FLAT)
+    # Waktu Cron di bawah dalam UTC (WIB = UTC + 7 jam).
+    # =========================================================================
+
+    # --- POLA A: SENIN, RABU, JUMAT, MINGGU ---
+    - cron: '47 23 * * 0,2,4,6'   # 06:47 WIB (Video 1 Pagi - 23:47 UTC H-1)
+    - cron: '30 1 * * 0,1,3,5'    # 08:30 WIB (Video 2 - Jeda ~1 jam 45 mnt)
+    - cron: '30 4 * * 0,1,3,5'    # 11:30 WIB (Video 3 - Jeda ~3 jam)
+    - cron: '15 7 * * 0,1,3,5'    # 14:15 WIB (Video 4 - Jeda ~2 jam 45 mnt)
+    - cron: '30 10 * * 0,1,3,5'   # 17:30 WIB (Video 5 - Jeda ~3 jam 15 mnt)
+    - cron: '45 13 * * 0,1,3,5'   # 20:45 WIB (Video 6 - Jeda ~3 jam 15 mnt)
+
+    # --- POLA B: SELASA, KAMIS, SABTU ---
+    - cron: '5 0 * * 2,4,6'       # 07:05 WIB (Video 1 Pagi - 00:05 UTC)
+    - cron: '15 2 * * 2,4,6'      # 09:15 WIB (Video 2 - Jeda ~2 jam 10 mnt)
+    - cron: '15 5 * * 2,4,6'      # 12:15 WIB (Video 3 - Jeda ~3 jam)
+    - cron: '0 8 * * 2,4,6'       # 15:00 WIB (Video 4 - Jeda ~2 jam 45 mnt)
+    - cron: '15 11 * * 2,4,6'     # 18:15 WIB (Video 5 - Jeda ~3 jam 15 mnt)
+    - cron: '15 14 * * 2,4,6'     # 21:15 WIB (Video 6 - Jeda ~3 jam)
   repository_dispatch:
     types:
       - render_video
@@ -95,8 +112,8 @@ jobs:
           echo "===================================="
           echo "    RANDOM SCHEDULE JITTER"
           echo "===================================="
-          # Jeda acak 0 - 600 detik (0 sampai 10 menit)
-          DELAY=$((RANDOM % 600))
+          # Jeda acak 0 - 720 detik (0 sampai 12 menit)
+          DELAY=$((RANDOM % 720))
           MINUTES=$((DELAY / 60))
           SECONDS=$((DELAY % 60))
           echo "Menunggu jeda acak: ${MINUTES} menit ${SECONDS} detik (${DELAY}s)..."
