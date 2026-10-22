@@ -1,7 +1,43 @@
 import os
 import json
+import random
 import google.generativeai as genai
 import config
+
+# ==========================================
+# KATEGORI SPESIFIK UNTUK SUDUT PANDANG KREATIF
+# ==========================================
+# Digunakan untuk mencegah AI mengulang tema yang sama di setiap jadwal scheduler
+KATEGORI_PROMPTS = [
+    "anatomi & reaksi tubuh manusia (contoh: merinding saat takut/dingin, cegukan, menguap menular, sidik jari unik, kedutan mata, jari keriput di air)",
+    "makanan, minuman, dan dapur (contoh: sensasi pedas cabai, air dingin vs hangat saat haus, bau bawang bikin nangis, rasa manis bikin ketagihan)",
+    "gadget, internet, dan kebiasaan digital (contoh: tombol spasi keyboard paling panjang, mode pesawat HP, susunan QWERTY, kenapa layar biru bikin melek)",
+    "psikologi, otak manusia, dan perilaku sosial (contoh: efek door-doorway/lupa saat pindah ruangan, deja vu, canggung saat hening, mimpi saat tidur)",
+    "asal-usul benda sehari-hari dan fasilitas umum (contoh: garis merah di kaca belakang mobil, lubang kecil di gembok, resleting, dasi, uang kertas/koin)",
+    "fenomena alam, cuaca, dan hewan sekitar (contoh: bau tanah basah/petrichor saat hujan, semut berpapasan selalu berhenti, kucing mendengkur, nyamuk mendengung)",
+    "bahasa, istilah unik, dan kebiasaan masyarakat (contoh: kenapa jabat tangan pakai tangan kanan, kenapa bersulang membenturkan gelas, asal-usul istilah sehari-hari)"
+]
+
+def load_topic_history(history_file=None, max_items=40):
+    """Membaca riwayat topik yang pernah dibuat agar tidak diulang oleh AI."""
+    history_file = history_file or getattr(config, "HISTORY_TOPICS_FILE", os.path.join(config.BASE_DIR, "riwayat_topik.txt"))
+    if not os.path.exists(history_file):
+        return []
+    try:
+        with open(history_file, "r", encoding="utf-8") as f:
+            lines = [line.strip() for line in f if line.strip() and not line.strip().startswith("#")]
+        return lines[-max_items:]
+    except Exception:
+        return []
+
+def save_topic_to_history(topic, history_file=None):
+    """Menyimpan topik baru ke file riwayat."""
+    history_file = history_file or getattr(config, "HISTORY_TOPICS_FILE", os.path.join(config.BASE_DIR, "riwayat_topik.txt"))
+    try:
+        with open(history_file, "a", encoding="utf-8") as f:
+            f.write(f"{topic}\n")
+    except Exception as e:
+        print(f"Peringatan: Gagal menyimpan riwayat topik: {e}")
 
 # ==========================================
 # PENGAMBILAN TOPIK OTOMATIS (OPSI A / OPSI B)
@@ -9,7 +45,7 @@ import config
 def get_topic(api_key=None, mode=None, model_name="gemini-2.5-flash"):
     """
     Mengambil topik berdasarkan konfigurasi:
-    - Opsi A ('ai_auto'): Gemini AI membuat ide topik trivia/paradox baru secara kreatif.
+    - Opsi A ('ai_auto'): Gemini AI membuat ide topik trivia/paradox baru dengan sistem Anti-Duplikasi.
     - Opsi B ('file_list'): Mengambil baris topik dari daftar_topik.txt dan merotasinya.
     """
     mode = mode or config.SCHEDULER_TOPIC_MODE
@@ -31,33 +67,73 @@ def get_topic(api_key=None, mode=None, model_name="gemini-2.5-flash"):
                 except Exception:
                     pass
                 print(f"📖 Topik diambil dari file ({topics_file}): {chosen_topic}")
+                save_topic_to_history(chosen_topic)
                 return chosen_topic
 
-    # Default Opsi A: Generate topik via Gemini AI
+    # Default Opsi A: Generate topik via Gemini AI dengan Anti-Duplikasi
     if not api_key:
         return "Kenapa 'keluar' tidak punya 'ke luar'?"
 
     try:
         genai.configure(api_key=api_key.strip())
         model = genai.GenerativeModel(model_name)
-        prompt = """
+
+        # 1. Pilih sudut pandang/kategori secara acak agar setiap jadwal berbeda tema
+        chosen_category = random.choice(KATEGORI_PROMPTS)
+
+        # 2. Ambil riwayat topik yang sudah pernah dibuat untuk negative prompt
+        history = load_topic_history(max_items=35)
+        history_instruction = ""
+        if history:
+            history_list_text = "\n".join([f"- {t}" for t in history[-25:]])
+            history_instruction = f"""
+DILARANG KERAS membuat topik yang sama atau mirip dengan daftar yang sudah pernah dibuat ini:
+{history_list_text}
+"""
+
+        prompt = f"""
 Kamu adalah produser konten untuk channel edukasi viral "kenapaYa?".
-Buatkan 1 (SATU) pertanyaan atau fenomena sederhana yang sangat relatable, memicu rasa penasaran ("Eh iya juga ya, baru kepikiran..."), dan sering kita alami sehari-hari tentang bahasa, sains, psikologi, sejarah, kebiasaan manusia, atau benda sekitar.
+Buatkan 1 (SATU) pertanyaan atau fenomena sederhana yang sangat relatable, memicu rasa penasaran ("Eh iya juga ya, baru kepikiran..."), dan sering kita alami sehari-hari.
 
-Contoh gaya:
-- Kenapa air bening disebut air putih?
-- Kenapa satu menit ada 60 detik?
-- Kenapa tombol spasi di keyboard ukurannya paling panjang?
-
-ATURAN:
+FOKUS TEMA JADWAL INI:
+{chosen_category}
+{history_instruction}
+ATURAN WAJIB:
+- Pertanyaan harus diawali dengan kata "Kenapa ..."
 - Hanya kembalikan 1 kalimat pertanyaan saja.
+- Harus baru, segar, unik, dan belum pernah dibahas di daftar riwayat di atas.
 - Jangan ada tanda kutip, jangan ada penomoran, jangan ada penjelasan pembuka/penutup.
 """
-        response = model.generate_content(prompt)
-        topic = (getattr(response, "text", "") or "").strip().strip('"').strip("'")
+
+        # Setting kreativitas tinggi (temperature 1.0) agar variasi maksimal
+        generation_config = {
+            "temperature": 1.0,
+            "top_p": 0.95,
+        }
+
+        # Loop percobaan (maksimal 3 kali) untuk memastikan topik bukan duplikat
+        for attempt in range(3):
+            response = model.generate_content(prompt, generation_config=generation_config)
+            topic = (getattr(response, "text", "") or "").strip().strip('"').strip("'")
+            
+            if topic:
+                # Normalisasi perbandingan sederhana
+                topic_clean = topic.lower().strip("?.! ")
+                is_duplicate = any(topic_clean in h.lower() or h.lower() in topic_clean for h in history)
+
+                if not is_duplicate:
+                    save_topic_to_history(topic)
+                    cat_short = chosen_category.split("(")[0].strip()
+                    print(f"💡 Ide Topik Baru dari AI [{cat_short}]: {topic}")
+                    return topic
+                else:
+                    print(f"⚠️ Topik '{topic}' mirip dengan riwayat lama, membuat ulang (percobaan {attempt + 1})...")
+
+        # Jika lolos semua percobaan, pakai topik terakhir dan simpan
         if topic:
-            print(f"💡 Ide Topik Baru dari AI: {topic}")
+            save_topic_to_history(topic)
             return topic
+
     except Exception as e:
         print(f"Gagal generate topik otomatis dari AI: {e}")
 

@@ -53,6 +53,7 @@ AUTO_UPLOAD_YOUTUBE = os.environ.get("AUTO_UPLOAD_YOUTUBE", "false").lower() == 
 # - "file_list" : Opsi B - Membaca baris demi baris dari file TOPICS_FILE
 SCHEDULER_TOPIC_MODE = os.environ.get("SCHEDULER_TOPIC_MODE", "ai_auto")
 TOPICS_FILE = os.path.join(os.path.dirname(os.path.abspath(__file__)), "daftar_topik.txt")
+HISTORY_TOPICS_FILE = os.path.join(os.path.dirname(os.path.abspath(__file__)), "riwayat_topik.txt")
 
 # ==============================================================================
 # DIREKTORI & ASSETS

@@ -1,0 +1,402 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Laporan & Panduan Kustomisasi - Motivasi Sarkas / KenapaYa</title>
+  <script src="https://www.gstatic.com/antigravity/web/dev/tailwindcss.min.js"></script>
+  <style>
+    /* Styling scrollbar & transition */
+    ::-webkit-scrollbar { width: 8px; height: 8px; }
+    ::-webkit-scrollbar-track { background: rgba(0,0,0,0.1); border-radius: 4px; }
+    ::-webkit-scrollbar-thumb { background: rgba(100,116,139,0.4); border-radius: 4px; }
+    ::-webkit-scrollbar-thumb:hover { background: rgba(100,116,139,0.7); }
+    .tab-active { border-color: #3b82f6 !important; color: #3b82f6 !important; background: rgba(59,130,246,0.08); font-weight: 600; }
+    .code-block { font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace; }
+  </style>
+</head>
+<body class="bg-[#0f172a] text-[#f8fafc] antialiased p-4 md:p-8 font-sans">
+  <div class="max-w-5xl mx-auto space-y-6">
+
+    <!-- HEADER / HERO -->
+    <header class="bg-[#1e293b] border border-[#334155] rounded-2xl p-6 md:p-8 shadow-xl relative overflow-hidden">
+      <div class="absolute -top-12 -right-12 w-48 h-48 bg-blue-500/10 rounded-full blur-3xl pointer-events-none"></div>
+      <div class="flex flex-col md:flex-row md:items-center justify-between gap-4">
+        <div>
+          <div class="inline-flex items-center gap-2 px-3 py-1 rounded-full text-xs font-semibold bg-amber-500/10 text-amber-400 border border-amber-500/20 mb-3">
+            <span>✨ Sistem Viral Shorts v2.1</span>
+            <span class="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse"></span>
+            <span>Aktif & Teruji</span>
+          </div>
+          <h1 class="text-2xl md:text-3xl font-bold tracking-tight text-white">
+            Laporan & Panduan Kustomisasi Video
+          </h1>
+          <p class="text-slate-400 text-sm md:text-base mt-1">
+            Panduan praktis mengubah Auto Upload YouTube, warna & ukuran teks, letak elemen, suara TTS, dan otomasi server.
+          </p>
+        </div>
+        <div class="flex items-center gap-2">
+          <span class="text-xs px-3 py-1.5 rounded-lg bg-[#0f172a] border border-[#334155] text-slate-300">
+            Repo: <strong>motivasi-sarkas</strong>
+          </span>
+        </div>
+      </div>
+    </header>
+
+    <!-- STATUS RINGKASAN UPDATE TERBARU -->
+    <section class="grid grid-cols-1 md:grid-cols-3 gap-4">
+      <div class="bg-[#1e293b] border border-emerald-500/30 rounded-xl p-5 shadow-sm">
+        <div class="flex items-center gap-3">
+          <div class="p-2.5 rounded-lg bg-emerald-500/10 text-emerald-400 text-xl">🎯</div>
+          <div>
+            <h3 class="font-semibold text-sm text-white">Audio Sync 1:1</h3>
+            <p class="text-xs text-slate-400 mt-0.5">Teks berganti tepat saat suara berucap (0 ms delay akumulatif).</p>
+          </div>
+        </div>
+      </div>
+
+      <div class="bg-[#1e293b] border border-blue-500/30 rounded-xl p-5 shadow-sm">
+        <div class="flex items-center gap-3">
+          <div class="p-2.5 rounded-lg bg-blue-500/10 text-blue-400 text-xl">🔤</div>
+          <div>
+            <h3 class="font-semibold text-sm text-white">Poppins-Black 3D</h3>
+            <p class="text-xs text-slate-400 mt-0.5">Teks tajam bebas distorsi stroke dengan Dual-Layer Drop Shadow.</p>
+          </div>
+        </div>
+      </div>
+
+      <div class="bg-[#1e293b] border border-amber-500/30 rounded-xl p-5 shadow-sm">
+        <div class="flex items-center gap-3">
+          <div class="p-2.5 rounded-lg bg-amber-500/10 text-amber-400 text-xl">📱</div>
+          <div>
+            <h3 class="font-semibold text-sm text-white">Golden Safe Zone</h3>
+            <p class="text-xs text-slate-400 mt-0.5">Tata letak terpusat Y=620, aman dari tombol UI YouTube Shorts.</p>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- TAB NAVIGATION -->
+    <div class="flex border-b border-[#334155] gap-2 overflow-x-auto pb-1 text-sm font-medium">
+      <button onclick="switchTab('auto-upload')" id="tab-btn-auto-upload" class="tab-btn tab-active px-4 py-2.5 rounded-t-lg border-b-2 border-transparent hover:text-blue-400 transition-colors whitespace-nowrap">
+        🚀 1. Auto Upload YouTube
+      </button>
+      <button onclick="switchTab('text-styling')" id="tab-btn-text-styling" class="tab-btn px-4 py-2.5 rounded-t-lg border-b-2 border-transparent text-slate-400 hover:text-blue-400 transition-colors whitespace-nowrap">
+        🎨 2. Ukuran & Warna Teks
+      </button>
+      <button onclick="switchTab('layout-position')" id="tab-btn-layout-position" class="tab-btn px-4 py-2.5 rounded-t-lg border-b-2 border-transparent text-slate-400 hover:text-blue-400 transition-colors whitespace-nowrap">
+        📐 3. Posisi Tata Letak (Y-Axis)
+      </button>
+      <button onclick="switchTab('voice-audio')" id="tab-btn-voice-audio" class="tab-btn px-4 py-2.5 rounded-t-lg border-b-2 border-transparent text-slate-400 hover:text-blue-400 transition-colors whitespace-nowrap">
+        🎙️ 4. Suara AI & BGM
+      </button>
+      <button onclick="switchTab('error-troubleshoot')" id="tab-btn-error-troubleshoot" class="tab-btn px-4 py-2.5 rounded-t-lg border-b-2 border-transparent text-slate-400 hover:text-blue-400 transition-colors whitespace-nowrap">
+        ⚠️ 5. Solusi Error 401
+      </button>
+    </div>
+
+    <!-- TAB CONTENT 1: AUTO UPLOAD -->
+    <div id="tab-auto-upload" class="tab-content space-y-6">
+      <div class="bg-[#1e293b] border border-[#334155] rounded-2xl p-6 shadow-sm space-y-5">
+        <div>
+          <h2 class="text-xl font-bold text-white flex items-center gap-2">
+            <span>🚀 Mengubah Mode Menjadi Auto Upload YouTube</span>
+          </h2>
+          <p class="text-sm text-slate-400 mt-1">
+            Saat ini sistem berada di <strong>Mode Review Manual</strong> (video dikirim ke Telegram, lalu Anda klik tombol <em>Upload YouTube</em>). Anda dapat mengaktifkan <strong>Mode Full Autopilot</strong> agar video otomatis di-upload ke YouTube setelah render selesai.
+          </p>
+        </div>
+
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <div class="p-4 rounded-xl border border-blue-500/20 bg-blue-500/5">
+            <h4 class="font-semibold text-sm text-blue-400 mb-1">Opsi A: Melalui File config.py (Lokal & Runner)</h4>
+            <p class="text-xs text-slate-400 mb-3">
+              Buka file <code class="text-blue-300">config.py</code> pada baris 46, ubah nilai default menjadi <code class="text-emerald-400">"true"</code>:
+            </p>
+            <div class="bg-[#0f172a] p-3 rounded-lg border border-[#334155] code-block text-xs text-slate-300">
+              <span class="text-slate-500"># config.py - Baris 46</span><br>
+              AUTO_UPLOAD_YOUTUBE = os.environ.get(<span class="text-emerald-400">"AUTO_UPLOAD_YOUTUBE"</span>, <span class="text-emerald-400">"true"</span>).lower() == <span class="text-emerald-400">"true"</span>
+            </div>
+          </div>
+
+          <div class="p-4 rounded-xl border border-amber-500/20 bg-amber-500/5">
+            <h4 class="font-semibold text-sm text-amber-400 mb-1">Opsi B: Melalui GitHub Repository Secrets / Vars</h4>
+            <p class="text-xs text-slate-400 mb-3">
+              Tanpa mengubah kode python, tambahkan variabel di GitHub Actions:
+            </p>
+            <ol class="text-xs text-slate-400 list-decimal list-inside space-y-1">
+              <li>Masuk ke GitHub repo -> <strong>Settings</strong> -> <strong>Secrets and variables</strong> -> <strong>Actions</strong>.</li>
+              <li>Pilih tab <strong>Variables</strong> -> Klik <strong>New repository variable</strong>.</li>
+              <li>Name: <code class="text-amber-300">AUTO_UPLOAD_YOUTUBE</code> | Value: <code class="text-emerald-400">true</code>.</li>
+            </ol>
+          </div>
+        </div>
+
+        <div class="border-t border-[#334155] pt-4">
+          <h4 class="font-semibold text-sm text-white mb-2">📋 Syarat Wajib Auto Upload Berhasil:</h4>
+          <ul class="text-xs text-slate-400 space-y-1.5 list-disc list-inside">
+            <li>GitHub Secret <code class="text-slate-200">YOUTUBE_CREDENTIALS_JSON</code> sudah diisi OAuth client credentials dari Google Cloud Console.</li>
+            <li>GitHub Secret <code class="text-slate-200">YOUTUBE_TOKEN_JSON</code> sudah berisi access token + refresh token YouTube channel Anda.</li>
+            <li>Workflow akan otomatis mengunggah video, memasang custom thumbnail, dan mengirim notifikasi link video YouTube ke Telegram Anda.</li>
+          </ul>
+        </div>
+      </div>
+    </div>
+
+    <!-- TAB CONTENT 2: TEXT STYLING -->
+    <div id="tab-text-styling" class="tab-content hidden space-y-6">
+      <div class="bg-[#1e293b] border border-[#334155] rounded-2xl p-6 shadow-sm space-y-5">
+        <div>
+          <h2 class="text-xl font-bold text-white flex items-center gap-2">
+            <span>🎨 Mengubah Ukuran Teks, Warna, dan Ketebalan Efek</span>
+          </h2>
+          <p class="text-sm text-slate-400 mt-1">
+            Seluruh pengaturan visual teks diatur di dalam file <strong class="text-blue-400">video_engine.py</strong>.
+          </p>
+        </div>
+
+        <!-- Section Ukuran Font -->
+        <div class="space-y-3">
+          <h3 class="text-base font-semibold text-white">1. Mengubah Ukuran Huruf (Font Size)</h3>
+          <p class="text-xs text-slate-400">Buka <code class="text-blue-300">video_engine.py</code> pada baris 53 - 55:</p>
+          <div class="bg-[#0f172a] p-4 rounded-xl border border-[#334155] code-block text-xs text-slate-300">
+            <span class="text-slate-500"># video_engine.py (Baris 53-55)</span><br>
+            TEXT_WIDTH = <span class="text-amber-400">640</span>          <span class="text-slate-500"># Lebar area teks (Layar: 720px, margin kiri/kanan 40px)</span><br>
+            TITLE_FONT_SIZE = <span class="text-amber-400">38</span>     <span class="text-slate-500"># Ukuran huruf Judul Utama (Rekomendasi: 36 - 42)</span><br>
+            SCENE_FONT_SIZE = <span class="text-amber-400">44</span>     <span class="text-slate-500"># Ukuran huruf Subtitle Berjalan (Rekomendasi: 42 - 50)</span>
+          </div>
+          <p class="text-xs text-blue-400">💡 <strong>Tips:</strong> Jika ingin subtitle lebih raksasa dan memenuhi tengah layar, ubah <code class="text-emerald-400">SCENE_FONT_SIZE = 48</code>.</p>
+        </div>
+
+        <!-- Section Warna Font -->
+        <div class="space-y-3 border-t border-[#334155] pt-4">
+          <h3 class="text-base font-semibold text-white">2. Mengubah Warna Teks & Badge</h3>
+          <p class="text-xs text-slate-400">Buka fungsi <code class="text-blue-300">generate_layout_elements()</code> di <code class="text-blue-300">video_engine.py</code>:</p>
+
+          <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <!-- Badge Color -->
+            <div class="bg-[#0f172a] p-4 rounded-xl border border-[#334155] space-y-2">
+              <span class="text-xs font-semibold text-amber-400">A. Badge "KENAPA YA?" (Pill Atas)</span>
+              <div class="code-block text-xs text-slate-300">
+                <span class="text-slate-500"># Ganti warna background badge:</span><br>
+                badge_bg = ColorClip(<br>
+                &nbsp;&nbsp;size=(190, 42),<br>
+                &nbsp;&nbsp;color=(<span class="text-amber-400">250, 204, 21</span>) <span class="text-slate-500"># Kuning (#FACC15)</span><br>
+                )<br><br>
+                <span class="text-slate-500"># Pilihan warna alternatif:</span><br>
+                <span class="text-slate-400">- Merah: (239, 68, 68)</span><br>
+                <span class="text-slate-400">- Putih: (255, 255, 255)</span><br>
+                <span class="text-slate-400">- Cyan:  (6, 182, 212)</span>
+              </div>
+            </div>
+
+            <!-- Text Color -->
+            <div class="bg-[#0f172a] p-4 rounded-xl border border-[#334155] space-y-2">
+              <span class="text-xs font-semibold text-blue-400">B. Warna Huruf Judul & Subtitle</span>
+              <div class="code-block text-xs text-slate-300">
+                <span class="text-slate-500"># Judul Utama (Baris ~228):</span><br>
+                title_shadow, title_main = create_styled_text_pair(<br>
+                &nbsp;&nbsp;title_text,<br>
+                &nbsp;&nbsp;fontsize=TITLE_FONT_SIZE,<br>
+                &nbsp;&nbsp;color=<span class="text-emerald-400">"white"</span>,  <span class="text-slate-500"># Ganti "#FACC15" untuk Judul Kuning</span><br>
+                &nbsp;&nbsp;...<br>
+                )<br><br>
+                <span class="text-slate-500"># Subtitle Kalimat (Baris ~252):</span><br>
+                color=<span class="text-emerald-400">"white"</span>,        <span class="text-slate-500"># Putih solid kontras tinggi</span>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Section Efek Drop Shadow -->
+        <div class="space-y-3 border-t border-[#334155] pt-4">
+          <h3 class="text-base font-semibold text-white">3. Mengatur Ketebalan Garis Tepi & Bayangan (Shadow)</h3>
+          <p class="text-xs text-slate-400">Pada pemanggilan <code class="text-blue-300">create_styled_text_pair(...)</code>:</p>
+          <div class="bg-[#0f172a] p-4 rounded-xl border border-[#334155] code-block text-xs text-slate-300">
+            stroke_color=<span class="text-emerald-400">"black"</span>,<br>
+            stroke_width=<span class="text-amber-400">1.5</span>,       <span class="text-slate-500"># 1.0 = halus, 1.5 = ideal, jangan > 3 agar huruf tidak tersumbat</span><br>
+            shadow_offset=(<span class="text-amber-400">3, 4</span>)    <span class="text-slate-500"># Geser bayangan hitam (X: +3px ke kanan, Y: +4px ke bawah)</span>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- TAB CONTENT 3: LAYOUT POSITION -->
+    <div id="tab-layout-position" class="tab-content hidden space-y-6">
+      <div class="bg-[#1e293b] border border-[#334155] rounded-2xl p-6 shadow-sm space-y-5">
+        <div>
+          <h2 class="text-xl font-bold text-white flex items-center gap-2">
+            <span>📐 Mengatur Koordinat Posisi Elemen (Sumbu Y)</span>
+          </h2>
+          <p class="text-sm text-slate-400 mt-1">
+            Layar vertikal YouTube Shorts memiliki tinggi <strong>1280 piksel</strong>. Berikut adalah peta pembagian koordinat vertikal yang optimal:
+          </p>
+        </div>
+
+        <!-- Visual Layout Representation -->
+        <div class="grid grid-cols-1 md:grid-cols-12 gap-6 items-center">
+          <div class="md:col-span-5 flex justify-center">
+            <!-- Mock Phone Screen -->
+            <div class="w-56 h-96 bg-slate-950 border-4 border-slate-700 rounded-3xl relative p-3 flex flex-col justify-between shadow-2xl text-[10px]">
+              <!-- Top YouTube UI -->
+              <div class="bg-red-500/20 border border-red-500/40 rounded p-1 text-center text-red-300">
+                Y: 0 – 200 (Area Bahaya Header YouTube)
+              </div>
+
+              <!-- Safe Zone Elements -->
+              <div class="space-y-2 text-center my-auto">
+                <!-- Badge -->
+                <div class="inline-block px-2 py-0.5 rounded bg-amber-400 text-black font-bold text-[9px]">
+                  KENAPA YA? (Y: 260)
+                </div>
+                <!-- Title -->
+                <div class="font-extrabold text-white text-[11px] leading-tight">
+                  JUDUL PERMANEN (Y: 318)
+                </div>
+                <!-- Subtitle Center -->
+                <div class="my-4 py-3 bg-blue-500/10 border border-blue-500/30 rounded-lg text-white font-black text-[12px]">
+                  SUBTITLE BERJALAN<br>(OPTICAL CENTER Y: 620)
+                </div>
+              </div>
+
+              <!-- Bottom YouTube UI -->
+              <div class="bg-red-500/20 border border-red-500/40 rounded p-1.5 text-center text-red-300">
+                Y: 960 – 1280 (Area Bahaya UI YouTube: Judul, Subscribe, Tombol Like/Komentar)
+              </div>
+            </div>
+          </div>
+
+          <div class="md:col-span-7 space-y-3">
+            <h4 class="font-semibold text-sm text-white">Cara Memindahkan Posisi di Kode:</h4>
+            <div class="space-y-2 text-xs">
+              <div class="p-3 rounded-lg bg-[#0f172a] border border-[#334155]">
+                <span class="text-amber-400 font-semibold">1. Menaikkan/Menurunkan Header (Badge + Judul):</span>
+                <p class="text-slate-400 mt-1">
+                  Ubah variabel <code class="text-slate-200">BADGE_Y = 260</code> di <code class="text-blue-300">video_engine.py</code>.<br>
+                  Judul otomatis mengikuti di bawah badge secara rapat (<code class="text-slate-200">TITLE_Y = BADGE_Y + 42 + 16</code>).
+                </p>
+              </div>
+
+              <div class="p-3 rounded-lg bg-[#0f172a] border border-[#334155]">
+                <span class="text-blue-400 font-semibold">2. Menaikkan/Menurunkan Subtitle Berjalan:</span>
+                <p class="text-slate-400 mt-1">
+                  Ubah variabel <code class="text-slate-200">OPTICAL_CENTER_Y = 620</code> di <code class="text-blue-300">video_engine.py</code>.<br>
+                  • Jika ingin agak naik sedikit: ganti ke <code class="text-slate-200">580</code>.<br>
+                  • Jika ingin agak turun mendekati batas aman: ganti ke <code class="text-slate-200">660</code>.
+                </p>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- TAB CONTENT 4: VOICE & AUDIO -->
+    <div id="tab-voice-audio" class="tab-content hidden space-y-6">
+      <div class="bg-[#1e293b] border border-[#334155] rounded-2xl p-6 shadow-sm space-y-5">
+        <div>
+          <h2 class="text-xl font-bold text-white flex items-center gap-2">
+            <span>🎙️ Kustomisasi Karakter Suara AI (TTS) & Musik Latar (BGM)</span>
+          </h2>
+          <p class="text-sm text-slate-400 mt-1">
+            Pengaturan audio diatur dalam file <strong class="text-blue-400">config.py</strong> pada baris 33 - 39:
+          </p>
+        </div>
+
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <!-- Voice selection -->
+          <div class="bg-[#0f172a] p-4 rounded-xl border border-[#334155] space-y-3">
+            <h4 class="font-semibold text-sm text-emerald-400">A. Memilih Karakter Suara (Edge-TTS)</h4>
+            <div class="code-block text-xs text-slate-300">
+              <span class="text-slate-500"># Pilihan 1: Suara Wanita (Ramah, Jernih)</span><br>
+              TTS_VOICE = <span class="text-emerald-400">"id-ID-GadisNeural"</span><br><br>
+              <span class="text-slate-500"># Pilihan 2: Suara Pria (Berwibawa, Edukasi)</span><br>
+              TTS_VOICE = <span class="text-emerald-400">"id-ID-ArdiNeural"</span>
+            </div>
+            <p class="text-xs text-slate-400">
+              Keduanya adalah model neural Microsoft paling natural untuk Bahasa Indonesia tanpa perlu API Key berbayar.
+            </p>
+          </div>
+
+          <!-- Speed & volume -->
+          <div class="bg-[#0f172a] p-4 rounded-xl border border-[#334155] space-y-3">
+            <h4 class="font-semibold text-sm text-amber-400">B. Kecepatan & Volume Mixing</h4>
+            <div class="code-block text-xs text-slate-300">
+              TTS_RATE = <span class="text-amber-400">"+0%"</span>       <span class="text-slate-500"># Atur "+5%" atau "+10%" jika ingin lebih cepat</span><br>
+              VOICEOVER_VOLUME = <span class="text-amber-400">1.0</span> <span class="text-slate-500"># 100% volume narator</span><br>
+              BGM_VOLUME = <span class="text-amber-400">0.15</span>       <span class="text-slate-500"># 15% volume musik latar</span>
+            </div>
+            <p class="text-xs text-slate-400">
+              BGM diambil secara acak dari folder <code class="text-slate-200">assets/audio/setup/</code>. Anda bisa memasukkan lagu MP3 baru ke folder tersebut kapan saja.
+            </p>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- TAB CONTENT 5: ERROR 401 TROUBLESHOOT -->
+    <div id="tab-error-troubleshoot" class="tab-content hidden space-y-6">
+      <div class="bg-[#1e293b] border border-red-500/30 rounded-2xl p-6 shadow-sm space-y-5">
+        <div>
+          <h2 class="text-xl font-bold text-red-400 flex items-center gap-2">
+            <span>⚠️ Solusi Error: HTTP 401 Bad Credentials saat Upload YouTube</span>
+          </h2>
+          <p class="text-sm text-slate-400 mt-1">
+            Pesan error <code class="text-red-300">HTTP 401 { "message": "Bad credentials", "documentation_url": "https://docs.github.com/rest" }</code> terjadi ketika token GitHub Personal Access Token (PAT) di <strong>Cloudflare Worker</strong> Anda telah kedaluwarsa atau tidak valid.
+          </p>
+        </div>
+
+        <div class="space-y-4 text-xs md:text-sm">
+          <div class="p-4 rounded-xl bg-[#0f172a] border border-[#334155] space-y-2">
+            <div class="font-semibold text-blue-400">Langkah 1: Generate Token Baru di GitHub</div>
+            <ol class="list-decimal list-inside space-y-1 text-slate-400">
+              <li>Buka tautan: <a href="https://github.com/settings/tokens" target="_blank" class="text-blue-400 underline">github.com/settings/tokens</a>.</li>
+              <li>Pilih <strong>Generate new token (classic)</strong>.</li>
+              <li>Isi Note: <code class="text-slate-200">Telegram Bot Uploader</code>.</li>
+              <li>Pilih Expiration: <strong>No expiration</strong> (agar tidak expired lagi di masa depan).</li>
+              <li>Centang hak akses: <strong>repo</strong> (Full control of private repositories) dan <strong>workflow</strong>.</li>
+              <li>Klik tombol <strong>Generate token</strong> di paling bawah dan salin token <code class="text-emerald-400">ghp_...</code> Anda.</li>
+            </ol>
+          </div>
+
+          <div class="p-4 rounded-xl bg-[#0f172a] border border-[#334155] space-y-2">
+            <div class="font-semibold text-emerald-400">Langkah 2: Perbarui Token di Cloudflare Worker</div>
+            <ol class="list-decimal list-inside space-y-1 text-slate-400">
+              <li>Buka dashboard Cloudflare -> <strong>Workers & Pages</strong>.</li>
+              <li>Pilih Worker Bot Telegram Anda.</li>
+              <li>Masuk ke menu <strong>Settings</strong> -> <strong>Variables and Secrets</strong>.</li>
+              <li>Edit variabel <code class="text-slate-200">GITHUB_TOKEN</code> (atau <code class="text-slate-200">GH_PAT</code>), paste token baru <code class="text-emerald-400">ghp_...</code>, lalu klik <strong>Save and Deploy</strong>.</li>
+            </ol>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- FOOTER -->
+    <footer class="text-center text-xs text-slate-500 pt-4 pb-8">
+      Dokumen Laporan & Panduan Kustomisasi YouTube Shorts Otomatis • Motivasi Sarkas / KenapaYa
+    </footer>
+
+  </div>
+
+  <script>
+    function switchTab(tabId) {
+      // Sembunyikan semua tab content
+      document.querySelectorAll('.tab-content').forEach(el => el.classList.add('hidden'));
+      // Hilangkan class aktif di semua tab button
+      document.querySelectorAll('.tab-btn').forEach(btn => {
+        btn.classList.remove('tab-active');
+        btn.classList.add('text-slate-400');
+      });
+      // Tampilkan tab terpilih
+      const targetContent = document.getElementById('tab-' + tabId);
+      if (targetContent) targetContent.classList.remove('hidden');
+      const targetBtn = document.getElementById('tab-btn-' + tabId);
+      if (targetBtn) {
+        targetBtn.classList.add('tab-active');
+        targetBtn.classList.remove('text-slate-400');
+      }
+    }
+  </script>
+</body>
+</html>

@@ -21,7 +21,7 @@ on:
         default: 'gemini-2.5-flash'
 
 permissions:
-  contents: read
+  contents: write
   actions: read
 
 jobs:
@@ -751,6 +751,24 @@ jobs:
             || echo "⚠️ Gagal mengirim callback render ke Cloudflare."
 
           echo "✅ Cloudflare render callback selesai."
+
+      # ======================================================
+      # PERSIST TOPIC HISTORY
+      # ======================================================
+
+      - name: Save and persist topic history
+        if: success()
+        shell: bash
+        run: |
+          git config --local user.email "github-actions[bot]@users.noreply.github.com"
+          git config --local user.name "github-actions[bot]"
+          git add riwayat_topik.txt daftar_topik.txt || true
+          if git diff --staged --quiet; then
+            echo "Tidak ada perubahan riwayat topik untuk di-commit."
+          else
+            git commit -m "chore: perbarui riwayat topik anti-duplikasi [skip ci]"
+            git push origin main || echo "⚠️ Gagal push riwayat topik ke main, dilewati."
+          fi
 
       # ======================================================
       # RENDER COMPLETED
