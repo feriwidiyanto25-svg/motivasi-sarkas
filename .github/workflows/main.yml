@@ -3,25 +3,19 @@ name: Motivasi Sarkas Render
 on:
   schedule:
     # =========================================================================
-    # JADWAL 6X SEHARI (RENTANG 06:47 - 21:30 WIB, JEDA DINAMIS NON-FLAT)
+    # JADWAL 6X SEHARI (RENTANG AKTIF 07:15 - 21:00 WIB)
+    # Menit :15 dan :45 dipilih bebas dari kemacetan server global GitHub Actions.
     # Waktu Cron di bawah dalam UTC (WIB = UTC + 7 jam).
+    #
+    # 1. 00:15 UTC = 07:15 WIB (Pagi)
+    # 2. 02:45 UTC = 09:45 WIB (Jeda 2.5 jam)
+    # 3. 05:15 UTC = 12:15 WIB (Jeda 2.5 jam - Makan Siang)
+    # 4. 07:45 UTC = 14:45 WIB (Jeda 2.5 jam)
+    # 5. 11:15 UTC = 18:15 WIB (Jeda 3.5 jam - Sore/Pulang Kerja)
+    # 6. 13:45 UTC = 20:45 WIB (Jeda 2.5 jam - Malam Santai)
     # =========================================================================
-
-    # --- POLA A: SENIN, RABU, JUMAT, MINGGU ---
-    - cron: '47 23 * * 0,2,4,6'   # 06:47 WIB (Video 1 Pagi - 23:47 UTC H-1)
-    - cron: '30 1 * * 0,1,3,5'    # 08:30 WIB (Video 2 - Jeda ~1 jam 45 mnt)
-    - cron: '30 4 * * 0,1,3,5'    # 11:30 WIB (Video 3 - Jeda ~3 jam)
-    - cron: '15 7 * * 0,1,3,5'    # 14:15 WIB (Video 4 - Jeda ~2 jam 45 mnt)
-    - cron: '30 10 * * 0,1,3,5'   # 17:30 WIB (Video 5 - Jeda ~3 jam 15 mnt)
-    - cron: '45 13 * * 0,1,3,5'   # 20:45 WIB (Video 6 - Jeda ~3 jam 15 mnt)
-
-    # --- POLA B: SELASA, KAMIS, SABTU ---
-    - cron: '5 0 * * 2,4,6'       # 07:05 WIB (Video 1 Pagi - 00:05 UTC)
-    - cron: '15 2 * * 2,4,6'      # 09:15 WIB (Video 2 - Jeda ~2 jam 10 mnt)
-    - cron: '15 5 * * 2,4,6'      # 12:15 WIB (Video 3 - Jeda ~3 jam)
-    - cron: '0 8 * * 2,4,6'       # 15:00 WIB (Video 4 - Jeda ~2 jam 45 mnt)
-    - cron: '15 11 * * 2,4,6'     # 18:15 WIB (Video 5 - Jeda ~3 jam 15 mnt)
-    - cron: '15 14 * * 2,4,6'     # 21:15 WIB (Video 6 - Jeda ~3 jam)
+    - cron: '15 0,5,11 * * *'
+    - cron: '45 2,7,13 * * *'
   repository_dispatch:
     types:
       - render_video
@@ -100,6 +94,31 @@ jobs:
           echo ""
           echo "PYTHON:"
           python --version
+
+      # ======================================================
+      # TIME GUARD (PENCEGAH RENDER TENGAH MALAM 22:00 - 06:00 WIB)
+      # ======================================================
+
+      - name: Time Guard (Active Hours 06:00 - 21:59 WIB)
+        if: github.event_name == 'schedule'
+        shell: bash
+        run: |
+          WIB_HOUR=$(TZ="Asia/Jakarta" date +%-H)
+          WIB_TIME=$(TZ="Asia/Jakarta" date '+%H:%M WIB')
+          echo "Waktu lokal Jakarta saat ini: $WIB_TIME (Jam $WIB_HOUR)"
+
+          # Jika server GitHub Actions baru melepas antrean job di tengah malam:
+          if [ "$WIB_HOUR" -lt 6 ] || [ "$WIB_HOUR" -ge 22 ]; then
+            echo "⚠️ Di luar jam tayang aktif (22:00 malam - 06:00 pagi WIB)."
+            echo "Pencegahan tengah malam aktif: Membatalkan render agar tidak mengganggu penonton."
+            curl -s -X POST \
+              -H "Authorization: Bearer ${{ github.token }}" \
+              -H "Accept: application/vnd.github+json" \
+              "https://api.github.com/repos/${{ github.repository }}/actions/runs/${{ github.run_id }}/cancel"
+            sleep 10
+            exit 0
+          fi
+          echo "✅ Waktu dalam batas jam tayang aktif ($WIB_TIME)."
 
       # ======================================================
       # RANDOM SCHEDULE JITTER (6X DALAM 24 JAM)
@@ -817,6 +836,11 @@ jobs:
           fi
 
           if [ "$JOB_STATUS" = "cancelled" ]; then
+            WIB_HOUR=$(TZ="Asia/Jakarta" date +%-H)
+            if [ "$WIB_HOUR" -lt 6 ] || [ "$WIB_HOUR" -ge 22 ]; then
+              echo "Dibatalkan oleh Time Guard di jam malam. Notifikasi Telegram dilewati agar tidak mengganggu istirahat."
+              exit 0
+            fi
             MESSAGE=$(printf '%s\n\n%s\n%s' \
               "⚠️ PROSES RENDER DIBATALKAN" \
               "GitHub Actions menghentikan proses render." \
