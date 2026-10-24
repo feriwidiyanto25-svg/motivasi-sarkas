@@ -349,21 +349,27 @@ Terlalu panjang.
 
 CONTOH BENAR:
 
-"Kenapa satu menit punya 60 detik?"
+"Kenapa satu menit punya *60 DETIK*?"
 
-"Ternyata ini bukan kebetulan."
+"Ternyata ini *BUKAN KEBETULAN*."
 
-"Sistem ini sudah ada sejak zaman kuno."
+"Sistem ini sudah ada sejak *ZAMAN KUNO*."
 
-"Bangsa kuno menggunakan sistem berbasis 60."
+"Bangsa kuno menggunakan *SISTEM BERBASIS 60*."
 
-"Angka 60 ternyata sangat mudah dibagi."
+"Angka 60 ternyata *SANGAT MUDAH* dibagi."
 
-"Itulah yang membuatnya praktis."
+"Itulah yang membuatnya *SANGAT PRAKTIS*."
 
-"Sistem ini kemudian bertahan sampai sekarang."
+"Sistem ini kemudian bertahan *SAMPAI SEKARANG*."
 
-"Nah, baru kepikiran, kan?"
+"Nah, baru *KEPIKIRAN*, kan?"
+
+==================================================
+KEYWORD HIGHLIGHTING (PENTING)
+==================================================
+
+Tandai 1 sampai 2 kata penegas paling penting, dramatis, atau menarik di setiap scene dengan tanda bintang (*...*), agar teks tersebut otomatis diberi warna aksen kuning cerah (#FACC15) di video.
 
 ==================================================
 ATURAN PECAH SCENE
@@ -577,9 +583,9 @@ FORMAT HARUS SAMA PERSIS:
 {{
     "title": "Judul yang menarik",
     "scenes": [
-        "Scene pendek 1",
-        "Scene pendek 2",
-        "Scene pendek 3"
+        "Kenapa satu menit punya *60 DETIK*?",
+        "Ternyata ini *BUKAN KEBETULAN*.",
+        "Sistem ini sudah ada sejak *ZAMAN KUNO*."
     ],
     "visual_context": "Detailed English visual description...",
     "bg_keywords": [

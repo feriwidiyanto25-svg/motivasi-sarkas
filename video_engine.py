@@ -4,6 +4,7 @@ import glob
 import random
 import uuid
 import requests
+import numpy as np
 from dotenv import load_dotenv
 
 # ==========================================
@@ -15,7 +16,7 @@ from tts_engine import generate_voiceover_for_scenes
 # ==========================================
 # PILLOW COMPATIBILITY
 # ==========================================
-from PIL import Image
+from PIL import Image, ImageDraw, ImageFont
 
 if not hasattr(Image, "ANTIALIAS"):
     Image.ANTIALIAS = Image.Resampling.LANCZOS
@@ -34,6 +35,7 @@ if config.IMAGEMAGICK_BINARY:
 from moviepy.editor import (
     VideoFileClip,
     TextClip,
+    ImageClip,
     CompositeVideoClip,
     CompositeAudioClip,
     concatenate_videoclips,
@@ -50,12 +52,13 @@ VIDEO_WIDTH = config.VIDEO_WIDTH
 VIDEO_HEIGHT = config.VIDEO_HEIGHT
 TARGET_ASPECT_RATIO = VIDEO_WIDTH / VIDEO_HEIGHT
 
-TEXT_WIDTH = 640
-TITLE_FONT_SIZE = 38
-SCENE_FONT_SIZE = 44
+MAX_TEXT_WIDTH = 620
+HOOK_FONT_SIZE = 48
+BODY_FONT_SIZE = 44
+OPTICAL_CENTER_Y = 620
 
 def get_font_path():
-    """Mengambil path font Poppins-Black dengan forward slashes untuk kompatibilitas ImageMagick."""
+    """Mengambil path font Poppins-Black dengan forward slashes untuk kompatibilitas multi-platform."""
     font_path = os.path.abspath(os.path.join(config.BASE_DIR, "assets", "Poppins-Black.ttf")).replace('\\', '/')
     if not os.path.exists(font_path):
         font_path = os.path.abspath(os.path.join(config.BASE_DIR, "assets", "Poppins-Bold.ttf")).replace('\\', '/')
@@ -118,145 +121,183 @@ def fit_video_to_fullscreen(video, target_duration):
     return video.set_position(("center", "center"))
 
 # ==========================================
-# PEMBUATAN TEXT CLIP DENGAN DROP-SHADOW 3D
+# TEKNIK B: TRUE GAUSSIAN BLUR MASK (DEFOCUS BOKEH)
 # ==========================================
-def create_styled_text_pair(
-    text,
-    fontsize,
-    color,
-    start,
-    duration,
-    y_pos=None,
-    center_y=None,
-    stroke_color="black",
-    stroke_width=1.5,
-    shadow_offset=(3, 4)
-):
+def apply_top_bottom_blur_mask(bg_video, total_duration):
     """
-    Membuat sepasang TextClip: Drop Shadow hitam di belakang + Teks Utama di depan.
-    Teknik ini menghasilkan teks viral yang sangat tajam tanpa membuat rongga huruf ('e', 'a', 'o', 'p')
-    tersumbat oleh stroke hitam tebal ImageMagick.
-    Jika center_y ditentukan, teks diposisikan tepat di titik tengah vertikal (optical center).
+    Menerapkan efek blur bokeh defocus sinematik di bagian atas (0-220px) dan bawah (1060-1280px),
+    sementara zona tengah (340-940px) tetap 100% tajam dan jernih kristal.
+    Zona transisi di-feather halus menggunakan kurva smoothstep agar tidak ada garis kaku.
     """
-    font_path = get_font_path()
-    text_clean = text.strip()
-    x_pos = int((VIDEO_WIDTH - TEXT_WIDTH) / 2)
+    try:
+        # 1. Layer Defocus Bokeh: downsample 10x lalu upsample ke 720x1280 + pencahayaan 85%
+        blurred_layer = (
+            bg_video
+            .resize(0.10)
+            .resize((VIDEO_WIDTH, VIDEO_HEIGHT))
+            .fx(vfx.colorx, 0.85)
+        )
 
-    # 1. Main Clip (untuk render teks tajam dan ukur tinggi sebenarnya)
-    main_clip = TextClip(
-        text_clean,
-        fontsize=fontsize,
-        color=color,
-        stroke_color=stroke_color,
-        stroke_width=stroke_width,
-        method="caption",
-        size=(TEXT_WIDTH, None),
-        font=font_path,
-        align="center"
-    )
+        # 2. Mask Feathering 2D (Smoothstep fade-in di atas, fade-out di bawah)
+        y_indices = np.arange(VIDEO_HEIGHT, dtype=np.float32)
+        t_top = np.clip((y_indices - 220.0) / (340.0 - 220.0), 0.0, 1.0)
+        mask_top = t_top * t_top * (3.0 - 2.0 * t_top)
 
-    if center_y is not None:
-        actual_y = int(center_y - main_clip.h / 2)
-    else:
-        actual_y = int(y_pos if y_pos is not None else 0)
+        t_bot = np.clip((1060.0 - y_indices) / (1060.0 - 940.0), 0.0, 1.0)
+        mask_bot = t_bot * t_bot * (3.0 - 2.0 * t_bot)
 
-    # 2. Shadow Clip (drop shadow hitam tajam di layer belakang)
-    shadow_clip = TextClip(
-        text_clean,
-        fontsize=fontsize,
-        color="black",
-        font=font_path,
-        size=(TEXT_WIDTH, None),
-        method="caption",
-        align="center"
-    )
+        mask_1d = np.minimum(mask_top, mask_bot)
+        mask_2d = np.tile(mask_1d[:, np.newaxis], (1, VIDEO_WIDTH))
 
-    shadow_x = x_pos + shadow_offset[0]
-    shadow_y = actual_y + shadow_offset[1]
+        mask_clip = ImageClip(mask_2d, ismask=True).set_duration(total_duration)
+        sharp_layer = bg_video.set_mask(mask_clip)
 
-    shadow_clip = (
-        shadow_clip
-        .set_position((shadow_x, shadow_y))
+        return CompositeVideoClip([blurred_layer, sharp_layer], size=(VIDEO_WIDTH, VIDEO_HEIGHT)).set_duration(total_duration)
+    except Exception as e:
+        print(f"⚠️ Warning blur mask fallback: {e}")
+        return bg_video
+
+# ==========================================
+# PIL-BASED MULTI-COLOR SUBTITLE RENDERER
+# ==========================================
+def render_scene_text_clip(text, font_size, font_path, start, duration, center_y=620, max_width=620, is_hook=False):
+    """
+    Merender teks subtitle ke ImageClip menggunakan Pillow dengan fitur:
+    - Multi-color keyword highlighting: #FACC15 (Kuning Menyala) untuk kata penegas (*KATA*, angka, atau kata pemicu emosi),
+      dan #FFFFFF (Putih Solid) untuk kata narasi biasa.
+    - Outline / stroke hitam 2px yang rapi tanpa menyumbat rongga huruf font.
+    - 3D drop shadow di (x+3, y+4) untuk keterbacaan tinggi di atas latar terang maupun gelap.
+    - Auto word wrapping presisi dan posisi tepat di Optical Center (Y = 620).
+    """
+    try:
+        font = ImageFont.truetype(font_path, font_size)
+    except Exception:
+        font = ImageFont.load_default()
+
+    # Predefined keyword highlight jika AI tidak memberikan tanda bintang (*)
+    HIGHLIGHT_KEYWORDS = {
+        "KENAPA", "TERNYATA", "RAHASIA", "OTAK", "BAHAYA", "PENTING",
+        "ALASANNYA", "FAKTANYA", "SISTEM", "KUNCI", "UNIK", "MENIT",
+        "DETIK", "TAHUN", "HARI", "TUBUH", "MANUSIA", "SADAR", "WASPADA",
+        "BUKAN", "KEBETULAN", "ALASAN", "PUNYA", "SANGAT", "MUDAH"
+    }
+
+    raw_words = text.strip().split()
+    tokens = []
+    has_explicit_stars = any("*" in w for w in raw_words)
+
+    for w in raw_words:
+        is_highlight = False
+        if has_explicit_stars:
+            if "*" in w:
+                is_highlight = True
+        else:
+            clean_check = w.strip(".,!?:;\"'()[]")
+            if clean_check.upper() in HIGHLIGHT_KEYWORDS or any(char.isdigit() for char in clean_check):
+                is_highlight = True
+
+        display_word = w.replace("*", "")
+        tokens.append((display_word, is_highlight))
+
+    # Auto word wrap
+    lines = []
+    curr_line = []
+    curr_w = 0
+    space_w = font.getbbox(" ")[2] - font.getbbox(" ")[0]
+
+    for word, hl in tokens:
+        bbox = font.getbbox(word)
+        w_len = bbox[2] - bbox[0]
+
+        if curr_line and (curr_w + space_w + w_len > max_width):
+            lines.append(curr_line)
+            curr_line = [(word, hl, w_len)]
+            curr_w = w_len
+        else:
+            if curr_line:
+                curr_w += space_w
+            curr_line.append((word, hl, w_len))
+            curr_w += w_len
+
+    if curr_line:
+        lines.append(curr_line)
+
+    line_height = int(font_size * 1.30)
+    padding_y = 20
+    canvas_h = len(lines) * line_height + padding_y * 2
+    canvas_w = VIDEO_WIDTH
+
+    img = Image.new("RGBA", (canvas_w, canvas_h), (0, 0, 0, 0))
+    draw = ImageDraw.Draw(img)
+
+    y = padding_y
+    for line in lines:
+        total_line_w = sum(w[2] for w in line) + space_w * (len(line) - 1)
+        x = (canvas_w - total_line_w) / 2
+
+        for word, hl, w_len in line:
+            fill_color = (250, 204, 21, 255) if hl else (255, 255, 255, 255)
+
+            # 3D Drop Shadow di layer belakang (offset +3, +4)
+            draw.text((x + 3, y + 4), word, font=font, fill=(0, 0, 0, 220), stroke_width=2, stroke_fill=(0, 0, 0, 220))
+            # Teks utama dengan outline hitam tajam
+            draw.text((x, y), word, font=font, fill=fill_color, stroke_width=2, stroke_fill=(0, 0, 0, 255))
+
+            x += w_len + space_w
+
+        y += line_height
+
+    rgb_np = np.array(img.convert("RGB"))
+    alpha_np = np.array(img.split()[-1]) / 255.0
+
+    actual_y = int(center_y - canvas_h / 2)
+
+    mask_clip = ImageClip(alpha_np, ismask=True).set_start(start).set_duration(duration)
+    text_clip = (
+        ImageClip(rgb_np)
+        .set_mask(mask_clip)
+        .set_position((0, actual_y))
         .set_start(start)
         .set_duration(duration)
     )
 
-    main_clip = (
-        main_clip
-        .set_position((x_pos, actual_y))
-        .set_start(start)
-        .set_duration(duration)
-    )
-
-    return shadow_clip, main_clip
+    return text_clip
 
 # ==========================================
-# ELEMEN TATA LETAK (LAYOUT ELEMENT)
+# ELEMEN TATA LETAK DINAMIS (LAYOUT ELEMENTS)
 # ==========================================
 def generate_layout_elements(naskah, timings):
+    """
+    Menghasilkan elemen teks untuk video Shorts:
+    1. Badge 'Kenapa ya?' dan judul statis di atas ditiadakan (tampilan bersih & cinematic).
+    2. Hook (Scene 1) tampil besar dan mencolok di Optical Center (Y = 620) di awal video.
+    3. Setelah Scene 1 selesai, hook hilang dan digantikan oleh scene penjelasan secara berurutan di tengah.
+    4. Menggunakan multi-color keyword highlighting dengan transisi yang mulus.
+    """
     clips = []
-    total_dur = timings["total_duration"]
     font_path = get_font_path()
 
-    # 1. BADGE "KENAPA YA?" (Pill Kuning di Safe Zone Atas)
-    BADGE_WIDTH = 190
-    BADGE_HEIGHT = 42
-    BADGE_Y = 260
-
-    badge_bg = (
-        ColorClip(size=(BADGE_WIDTH, BADGE_HEIGHT), color=(250, 204, 21))
-        .set_position(("center", BADGE_Y))
-        .set_start(0)
-        .set_duration(total_dur)
-    )
-
-    badge_text = (
-        TextClip("KENAPA YA?", fontsize=20, color="black", font=font_path)
-        .set_position(("center", BADGE_Y + 9))
-        .set_start(0)
-        .set_duration(total_dur)
-    )
-    clips.extend([("badge_bg", badge_bg), ("badge_text", badge_text)])
-
-    # 2. JUDUL PERMANEN (Satu kesatuan dengan Badge, Huruf Kapital, Solid White)
-    title_text = naskah.get("title", "").strip().upper()
-    TITLE_Y = BADGE_Y + BADGE_HEIGHT + 16  # Y = 318
-
-    title_shadow, title_main = create_styled_text_pair(
-        title_text,
-        fontsize=TITLE_FONT_SIZE,
-        color="white",
-        start=0,
-        duration=total_dur,
-        y_pos=TITLE_Y,
-        stroke_color="black",
-        stroke_width=1.5
-    )
-    clips.extend([("title_shadow", title_shadow), ("title_main", title_main)])
-
-    # 3. SUBTITLE SCENES (Tepat di Titik Pusat Fokus Y = 620)
-    # Teks besar, huruf kapital, sinkronisasi 1:1, dan aman dari UI YouTube di bawah
-    OPTICAL_CENTER_Y = 620
-
-    for sc in timings["scene_timings"]:
+    scene_timings = timings.get("scene_timings", [])
+    for idx, sc in enumerate(scene_timings):
         sc_text = sc["text"].strip().upper()
         if not sc_text:
             continue
 
-        sc_shadow, sc_main = create_styled_text_pair(
-            sc_text,
-            fontsize=SCENE_FONT_SIZE,
-            color="white",
+        is_hook = (idx == 0)
+        fontsize = HOOK_FONT_SIZE if is_hook else BODY_FONT_SIZE
+
+        text_clip = render_scene_text_clip(
+            text=sc_text,
+            font_size=fontsize,
+            font_path=font_path,
             start=sc["start"],
             duration=sc["duration"],
             center_y=OPTICAL_CENTER_Y,
-            stroke_color="black",
-            stroke_width=1.5
+            max_width=MAX_TEXT_WIDTH,
+            is_hook=is_hook
         )
-        clips.extend([
-            (f"{sc['name']}_shadow", sc_shadow),
-            (f"{sc['name']}_main", sc_main)
-        ])
+        if text_clip:
+            clips.append((f"{sc['name']}_text", text_clip))
 
     return clips
 
@@ -328,6 +369,7 @@ def render_final_video(naskah):
 
     source_video = None
     bg_video = None
+    composite_bg = None
     final_video = None
     final_audio = None
 
@@ -347,11 +389,15 @@ def render_final_video(naskah):
                 duration=total_duration
             ).set_position(("center", "center"))
 
-        # 3. SUSUN ELEMEN TEKS DENGAN BLACK STROKE (OPTIMASI DIRECT COMPOSITE)
+        # 3. TERAPKAN TEKNIK B: TRUE GAUSSIAN BLUR MASK PADA LATAR BELAKANG
+        print("Menerapkan efek Defocus Bokeh Blur Mask pada bagian atas dan bawah latar...")
+        composite_bg = apply_top_bottom_blur_mask(bg_video, total_duration)
+
+        # 4. SUSUN ELEMEN SUBTITLE DINAMIS (HOOK DI AWAL & PENJELASAN BERURUTAN DI TENGAH)
         layout_elements = generate_layout_elements(naskah, timings)
 
-        print("Menggabungkan layer teks dan video secara langsung...")
-        all_layers = [bg_video]
+        print("Menggabungkan layer teks dan video latar...")
+        all_layers = [composite_bg]
         for name, clip in layout_elements:
             all_layers.append(clip)
 
@@ -368,12 +414,12 @@ def render_final_video(naskah):
         except Exception as e:
             print(f"Peringatan thumbnail: {e}")
 
-        # 4. PASANG AUDIO (VOICEOVER + BGM)
+        # 5. PASANG AUDIO (VOICEOVER + BGM)
         final_audio = create_composite_audio(master_voiceover_path, total_duration)
         if final_audio:
             final_video = final_video.set_audio(final_audio)
 
-        # 5. EKSPOR FILE MP4 KILAT (ULTRAFAST + 4 THREADS)
+        # 6. EKSPOR FILE MP4 KILAT (ULTRAFAST + 4 THREADS)
         os.makedirs(config.TEMP_DIR, exist_ok=True)
         unique_id = uuid.uuid4().hex[:8]
         output_path = os.path.join(config.TEMP_DIR, f"final_{unique_id}.mp4")
@@ -409,6 +455,7 @@ def render_final_video(naskah):
     finally:
         safe_close(final_audio)
         safe_close(final_video)
+        safe_close(composite_bg)
         safe_close(bg_video)
         safe_close(source_video)
 

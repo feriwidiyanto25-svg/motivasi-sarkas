@@ -44,8 +44,10 @@ def generate_voiceover_for_scenes(scenes: list, output_dir: str = None, voice: s
         if not clean_text:
             continue
 
+        # Hilangkan simbol format penegas (*) khusus saat dikirim ke TTS agar suara terdengar mulus dan natural
+        spoken_text = clean_text.replace("*", "")
         audio_file = os.path.join(output_dir, f"scene_{i:02d}.mp3")
-        generate_single_audio(clean_text, audio_file, voice=voice)
+        generate_single_audio(spoken_text, audio_file, voice=voice)
 
         # Ukur durasi audio yang dihasilkan
         clip = AudioFileClip(audio_file)
@@ -65,7 +67,7 @@ def generate_voiceover_for_scenes(scenes: list, output_dir: str = None, voice: s
 
         audio_clips.append(clip)
         current_time += scene_duration
-        print(f"  [{i}/{len(scenes)}] {dur:.2f}s -> {clean_text[:35]}...")
+        print(f"  [{i}/{len(scenes)}] {dur:.2f}s -> {spoken_text[:35]}...")
 
     if not audio_clips:
         raise ValueError("Tidak ada scene teks yang valid untuk di-generate suaranya.")
