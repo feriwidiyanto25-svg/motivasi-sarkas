@@ -206,7 +206,7 @@ def generate_naskah(
     topik,
     api_key,
     model_name="gemini-2.5-flash",
-    duration_seconds=60
+    duration_seconds=30
 ):
     if not api_key or api_key.strip() == "":
         return {"error": "Gemini API Key wajib diisi!"}
@@ -403,17 +403,24 @@ STRUKTUR CERITA
 Gunakan struktur ini sebagai panduan.
 
 SCENE 1:
-HOOK
+HOOK ANTI-SKIP (SANGAT KRUSIAL - DETIK 0-2)
 
-Langsung masuk ke pertanyaan.
+Detik 0 sampai 2 adalah penentu apakah penonton akan swipe atau menonton sampai habis!
+Buat Hook yang langsung MENUSUK rasa penasaran atau menyentil kebiasaan relatable penonton.
 
-Jangan gunakan:
-"Halo semuanya."
-"Pada video kali ini."
-"Apakah kalian tahu."
+PILIHAN FORMAT HOOK YANG SANGAT MEMIKAT:
+1. Menusuk rasa penasaran relatable:
+   - "Pernah nggak kamu kepikiran, *KENAPA*...?"
+   - "Sadar nggak, setiap kali kamu..., pasti...?"
+2. Paradoks / Rahasia / Mengagetkan:
+   - "Ternyata ada alasan gila kenapa *[OBJEK/HAL]*...!"
+   - "Bukan kebetulan, ini alasan kenapa *[OBJEK/HAL]*...!"
+   - "Kenapa satu menit punya *60 DETIK*?"
+   - "Kenapa otakmu sengaja bikin kamu *LUPA* pas masuk kamar?"
 
-Contoh:
-"Kenapa satu menit punya 60 detik?"
+PANTANGAN MUTLAK SCENE 1:
+- DILARANG basa-basi ("Halo semuanya", "Pada video kali ini", "Tahukah kamu").
+- Harus singkat, padat (maksimal 7-10 kata), dan langsung memicu rasa ingin tahu!
 
 SCENE BERIKUTNYA:
 FENOMENA

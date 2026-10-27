@@ -57,6 +57,8 @@ HOOK_FONT_SIZE = 48
 BODY_FONT_SIZE = 44
 OPTICAL_CENTER_Y = 620
 
+IMAGES_DIR = getattr(config, "IMAGES_DIR", os.path.join(config.BASE_DIR, "assets", "images"))
+
 def get_font_path():
     """Mengambil path font Poppins-Black dengan forward slashes untuk kompatibilitas multi-platform."""
     font_path = os.path.abspath(os.path.join(config.BASE_DIR, "assets", "Poppins-Black.ttf")).replace('\\', '/')
@@ -67,58 +69,109 @@ def get_font_path():
     return font_path
 
 # ==========================================
-# PILIH VIDEO LATAR LOKAL (assets/videos)
+# PEMBUATAN LATAR BELAKANG GAMBAR (PILIHAN B: BERGANTI RATA DINAMIS)
 # ==========================================
-def get_local_background_video(target_duration):
+def fit_image_to_fullscreen_np(image_path):
     """
-    Mengambil video dari folder lokal assets/videos/ secara acak.
-    Jika folder belum memiliki video, membuat background fallback warna gelap
-    agar sistem tetap bisa merender tanpa crash.
+    Membuka file gambar dan melakukan center-crop ke resolusi 720x1280 (9:16)
+    tanpa merusak aspek rasio asli.
     """
+    with Image.open(image_path) as img:
+        img = img.convert("RGB")
+        w, h = img.size
+        img_ratio = w / h
+
+        if img_ratio > TARGET_ASPECT_RATIO:
+            new_h = VIDEO_HEIGHT
+            new_w = int(w * (new_h / h))
+            img_resized = img.resize((new_w, new_h), Image.Resampling.LANCZOS)
+            x1 = (new_w - VIDEO_WIDTH) // 2
+            img_cropped = img_resized.crop((x1, 0, x1 + VIDEO_WIDTH, VIDEO_HEIGHT))
+        else:
+            new_w = VIDEO_WIDTH
+            new_h = int(h * (new_w / w))
+            img_resized = img.resize((new_w, new_h), Image.Resampling.LANCZOS)
+            y1 = (new_h - VIDEO_HEIGHT) // 2
+            img_cropped = img_resized.crop((0, y1, VIDEO_WIDTH, y1 + VIDEO_HEIGHT))
+
+        return np.array(img_cropped)
+
+def get_background_clip(total_duration):
+    """
+    Menghasilkan video latar belakang (Pilihan B: Berganti rata per beberapa detik):
+    - Mengambil gambar dari assets/images/ secara dinamis (3, 4, 5, 6, atau lebih gambar sesuai durasi).
+    - Rata-rata setiap gambar tampil 3.5 - 4.2 detik untuk interupsi visual anti-bosan.
+    - Jika tidak ada gambar, fallback otomatis ke video lokal assets/videos/ atau kanvas warna.
+    """
+    # 1. Cari kandidat gambar di assets/images
+    image_extensions = ("*.jpg", "*.jpeg", "*.png", "*.webp")
+    image_candidates = []
+    if os.path.exists(IMAGES_DIR):
+        for ext in image_extensions:
+            image_candidates.extend(glob.glob(os.path.join(IMAGES_DIR, ext)))
+
+    if image_candidates:
+        target_per_image = 3.8
+        num_images = max(3, int(round(total_duration / target_per_image)))
+        clip_duration = total_duration / num_images
+
+        if len(image_candidates) >= num_images:
+            chosen_paths = random.sample(image_candidates, num_images)
+        else:
+            chosen_paths = random.choices(image_candidates, k=num_images)
+
+        print(f"🖼️ Latar Gambar Dinamis: Menggunakan {num_images} gambar (berganti tiap {clip_duration:.2f}s)")
+        image_clips = []
+        for idx, img_path in enumerate(chosen_paths):
+            try:
+                np_frame = fit_image_to_fullscreen_np(img_path)
+                clip = ImageClip(np_frame).set_duration(clip_duration)
+                image_clips.append(clip)
+            except Exception as e:
+                print(f"⚠️ Gagal memuat gambar {img_path}: {e}")
+
+        if image_clips:
+            slideshow = concatenate_videoclips(image_clips, method="compose").set_duration(total_duration)
+            return slideshow
+
+    # 2. Fallback: Cari video lokal di assets/videos
     video_extensions = ("*.mp4", "*.mov", "*.webm", "*.mkv")
-    candidates = []
+    video_candidates = []
+    if os.path.exists(config.VIDEOS_DIR):
+        for ext in video_extensions:
+            video_candidates.extend(glob.glob(os.path.join(config.VIDEOS_DIR, ext)))
 
-    for ext in video_extensions:
-        candidates.extend(glob.glob(os.path.join(config.VIDEOS_DIR, ext)))
+    if video_candidates:
+        chosen_video = random.choice(video_candidates)
+        print(f"🎬 Video Latar Fallback Terpilih: {os.path.basename(chosen_video)}")
+        try:
+            src = VideoFileClip(chosen_video, audio=False)
+            current_ratio = src.w / src.h
+            if current_ratio > TARGET_ASPECT_RATIO:
+                vid = src.resize(height=VIDEO_HEIGHT)
+                x1 = (vid.w - VIDEO_WIDTH) / 2
+                vid = vid.crop(x1=x1, y1=0, x2=x1 + VIDEO_WIDTH, y2=VIDEO_HEIGHT)
+            else:
+                vid = src.resize(width=VIDEO_WIDTH)
+                y1 = (vid.h - VIDEO_HEIGHT) / 2
+                vid = vid.crop(x1=0, y1=y1, x2=VIDEO_WIDTH, y2=y1 + VIDEO_HEIGHT)
 
-    if not candidates:
-        print(f"⚠️ Tidak ada video di '{config.VIDEOS_DIR}'. Menggunakan background kanvas fallback.")
-        return None
+            if vid.duration < total_duration:
+                vid = vid.fx(vfx.loop, duration=total_duration)
+            else:
+                vid = vid.subclip(0, total_duration)
 
-    chosen_video = random.choice(candidates)
-    print(f"🎬 Video Latar Terpilih: {os.path.basename(chosen_video)}")
-    return chosen_video
+            return vid.set_position(("center", "center"))
+        except Exception as e:
+            print(f"⚠️ Gagal membuka video fallback: {e}")
 
-# ==========================================
-# SESUAIKAN VIDEO KE FULLSCREEN (9:16)
-# ==========================================
-def fit_video_to_fullscreen(video, target_duration):
-    """
-    Memastikan video mengisi penuh layar vertikal (720x1280) tanpa distorsi,
-    dan melakukan loop jika durasi video lebih pendek dari target.
-    """
-    current_width = video.w
-    current_height = video.h
-    current_ratio = current_width / current_height
-
-    if current_ratio > TARGET_ASPECT_RATIO:
-        # Video lebih lebar -> sesuaikan tinggi lalu crop lebarnya
-        video = video.resize(height=VIDEO_HEIGHT)
-        x1 = (video.w - VIDEO_WIDTH) / 2
-        video = video.crop(x1=x1, y1=0, x2=x1 + VIDEO_WIDTH, y2=VIDEO_HEIGHT)
-    else:
-        # Video lebih ramping/pas -> sesuaikan lebar lalu crop tingginya
-        video = video.resize(width=VIDEO_WIDTH)
-        y1 = (video.h - VIDEO_HEIGHT) / 2
-        video = video.crop(x1=0, y1=y1, x2=VIDEO_WIDTH, y2=y1 + VIDEO_HEIGHT)
-
-    # Loop video jika lebih pendek dari total durasi narasi
-    if video.duration < target_duration:
-        video = video.fx(vfx.loop, duration=target_duration)
-    else:
-        video = video.subclip(0, target_duration)
-
-    return video.set_position(("center", "center"))
+    # 3. Fallback Terakhir: Kanvas warna gelap
+    print("⚠️ Menggunakan kanvas warna fallback.")
+    return ColorClip(
+        size=(VIDEO_WIDTH, VIDEO_HEIGHT),
+        color=(24, 28, 36),
+        duration=total_duration
+    ).set_position(("center", "center"))
 
 # ==========================================
 # TEKNIK B: TRUE GAUSSIAN BLUR MASK (DEFOCUS BOKEH)
@@ -174,12 +227,11 @@ def render_scene_text_clip(text, font_size, font_path, start, duration, center_y
     except Exception:
         font = ImageFont.load_default()
 
-    # Predefined keyword highlight jika AI tidak memberikan tanda bintang (*)
     HIGHLIGHT_KEYWORDS = {
         "KENAPA", "TERNYATA", "RAHASIA", "OTAK", "BAHAYA", "PENTING",
         "ALASANNYA", "FAKTANYA", "SISTEM", "KUNCI", "UNIK", "MENIT",
         "DETIK", "TAHUN", "HARI", "TUBUH", "MANUSIA", "SADAR", "WASPADA",
-        "BUKAN", "KEBETULAN", "ALASAN", "PUNYA", "SANGAT", "MUDAH"
+        "BUKAN", "KEBETULAN", "ALASAN", "PUNYA", "SANGAT", "MUDAH", "GILA", "MISTERI"
     }
 
     raw_words = text.strip().split()
@@ -269,10 +321,9 @@ def render_scene_text_clip(text, font_size, font_path, start, duration, center_y
 def generate_layout_elements(naskah, timings):
     """
     Menghasilkan elemen teks untuk video Shorts:
-    1. Badge 'Kenapa ya?' dan judul statis di atas ditiadakan (tampilan bersih & cinematic).
-    2. Hook (Scene 1) tampil besar dan mencolok di Optical Center (Y = 620) di awal video.
-    3. Setelah Scene 1 selesai, hook hilang dan digantikan oleh scene penjelasan secara berurutan di tengah.
-    4. Menggunakan multi-color keyword highlighting dengan transisi yang mulus.
+    1. Hook (Scene 1) tampil besar dan mencolok di Optical Center (Y = 620) di awal video.
+    2. Setelah Scene 1 selesai, hook hilang dan digantikan oleh scene penjelasan secara berurutan di tengah.
+    3. Menggunakan multi-color keyword highlighting dengan transisi yang mulus.
     """
     clips = []
     font_path = get_font_path()
@@ -354,7 +405,7 @@ def render_final_video(naskah):
     print("      MULAI RENDER VIDEO SHORTS     ")
     print("====================================")
 
-    # 1. GENERATE VOICEOVER & HITUNG PRESISI TIMING
+    # 1. GENERATE VOICEOVER & HITUNG PRESISI TIMING (DUAL VOICE: PRIA / WANITA ACAK)
     scenes = naskah.get("scenes", [])
     if not scenes:
         raise ValueError("Naskah tidak memiliki scenes untuk di-render.")
@@ -367,31 +418,18 @@ def render_final_video(naskah):
         "total_duration": total_duration
     }
 
-    source_video = None
-    bg_video = None
+    raw_bg = None
     composite_bg = None
     final_video = None
     final_audio = None
 
     try:
-        # 2. SIAPKAN VIDEO LATAR BELAKANG LOKAL
-        bg_local_path = get_local_background_video(total_duration)
-
-        if bg_local_path and os.path.exists(bg_local_path):
-            print("Membuka video latar lokal...")
-            source_video = VideoFileClip(bg_local_path, audio=False)
-            bg_video = fit_video_to_fullscreen(source_video, total_duration)
-        else:
-            print("Menggunakan latar kanvas fallback...")
-            bg_video = ColorClip(
-                size=(VIDEO_WIDTH, VIDEO_HEIGHT),
-                color=(24, 28, 36),
-                duration=total_duration
-            ).set_position(("center", "center"))
+        # 2. SIAPKAN LATAR BELAKANG DINAMIS (GAMBAR SLIDESHOW MULTI-GAMBAR)
+        raw_bg = get_background_clip(total_duration)
 
         # 3. TERAPKAN TEKNIK B: TRUE GAUSSIAN BLUR MASK PADA LATAR BELAKANG
         print("Menerapkan efek Defocus Bokeh Blur Mask pada bagian atas dan bawah latar...")
-        composite_bg = apply_top_bottom_blur_mask(bg_video, total_duration)
+        composite_bg = apply_top_bottom_blur_mask(raw_bg, total_duration)
 
         # 4. SUSUN ELEMEN SUBTITLE DINAMIS (HOOK DI AWAL & PENJELASAN BERURUTAN DI TENGAH)
         layout_elements = generate_layout_elements(naskah, timings)
@@ -456,8 +494,7 @@ def render_final_video(naskah):
         safe_close(final_audio)
         safe_close(final_video)
         safe_close(composite_bg)
-        safe_close(bg_video)
-        safe_close(source_video)
+        safe_close(raw_bg)
 
         if 'layout_elements' in locals():
             for name, clip in layout_elements:

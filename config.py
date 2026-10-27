@@ -60,6 +60,7 @@ HISTORY_TOPICS_FILE = os.path.join(os.path.dirname(os.path.abspath(__file__)), "
 # ==============================================================================
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 VIDEOS_DIR = os.path.join(BASE_DIR, "assets", "videos")
+IMAGES_DIR = os.path.join(BASE_DIR, "assets", "images")
 AUDIO_DIR = os.path.join(BASE_DIR, "assets", "audio")
 TEMP_DIR = os.path.join(BASE_DIR, "temp")
 
