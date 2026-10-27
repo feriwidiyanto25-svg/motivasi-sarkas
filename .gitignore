@@ -17,6 +17,10 @@ venv/
 temp/
 tmp/
 *TEMP_MPY*
+sejarah_facebook/temp/
+sejarah_facebook/output/
+output/
+*.mp4
 
 # Local ImageMagick
 ImageMagick/
