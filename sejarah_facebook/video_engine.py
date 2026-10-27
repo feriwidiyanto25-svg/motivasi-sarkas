@@ -74,12 +74,9 @@ def get_history_background_clip(total_duration):
         for ext in image_extensions:
             candidates.extend(glob.glob(os.path.join(config.IMAGES_DIR, ext)))
 
-    # 2. Fallback: Cek folder root assets/images
     if not candidates:
-        root_images = os.path.join(config.ROOT_DIR, "assets", "images")
-        if os.path.exists(root_images):
-            for ext in image_extensions:
-                candidates.extend(glob.glob(os.path.join(root_images, ext)))
+        print("⚠️ Folder 'sejarah_facebook/assets/images' masih kosong.")
+        print("   Menunggu gambar khusus sejarah dari Flow dimasukkan...")
 
     if candidates:
         target_per_image = 4.0
