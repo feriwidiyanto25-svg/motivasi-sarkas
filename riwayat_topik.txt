@@ -50,3 +50,4 @@ Kenapa kita sering mengacungkan jempol untuk menunjukkan persetujuan atau 'oke'?
 Kenapa semut bisa tahu ada makanan di mana, padahal tempatnya jauh dan tersembunyi?
 Kenapa kita sering menunjuk arah atau benda menggunakan ibu jari, bukan jari telunjuk?
 Kenapa pinggir koin memiliki garis-garis bergerigi?
+Kenapa kita sering menekan tombol 'refresh' berkali-kali di browser saat internet lambat, padahal hasilnya sama saja?
