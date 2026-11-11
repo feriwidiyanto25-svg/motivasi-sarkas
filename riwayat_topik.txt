@@ -79,3 +79,4 @@ Kenapa kita sering merasa suatu kata sudah di ujung lidah tapi sulit sekali untu
 Kenapa saat mengunduh file, persentase progress bar seringkali macet di 99% untuk waktu yang lama?
 Kenapa saat koneksi internet lambat, seringkali yang pertama tidak bisa diakses adalah gambar?
 Kenapa otot kita kadang berkedut atau bergerak sendiri saat sedang beristirahat?
+Kenapa kita sering mencolokkan charger atau USB secara terbalik di percobaan pertama?
