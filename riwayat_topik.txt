@@ -77,3 +77,4 @@ Kenapa penutup lubang got atau manhole di jalan raya sebagian besar berbentuk bu
 Kenapa kita sering merasakan sensasi "jatuh" sesaat sebelum tertidur lelap?
 Kenapa kita sering merasa suatu kata sudah di ujung lidah tapi sulit sekali untuk mengucapkannya?
 Kenapa saat mengunduh file, persentase progress bar seringkali macet di 99% untuk waktu yang lama?
+Kenapa saat koneksi internet lambat, seringkali yang pertama tidak bisa diakses adalah gambar?
