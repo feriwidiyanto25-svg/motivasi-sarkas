@@ -14,8 +14,8 @@ on:
     # 5. 11:15 UTC = 18:15 WIB (Jeda 3.5 jam - Sore/Pulang Kerja)
     # 6. 13:45 UTC = 20:45 WIB (Jeda 2.5 jam - Malam Santai)
     # =========================================================================
-    - cron: '15 0,5,11 * * *'
-    - cron: '45 2,7,13 * * *'
+    # - cron: '15 0,5,11 * * *'
+    # - cron: '45 2,7,13 * * *'
   repository_dispatch:
     types:
       - render_video
